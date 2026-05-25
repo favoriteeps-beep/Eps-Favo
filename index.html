@@ -1014,6 +1014,9 @@ function renderGroup() {
         <span class="pill pill-yellow">🩹 ${D}</span>
       </div></div><div class="sess-chevron">›</div>`;
     item.onclick=()=>editSession(idx);
+    let pt2; item.addEventListener('touchstart',()=>{ pt2=setTimeout(()=>confirmDeleteSession(idx),700); });
+    item.addEventListener('touchend',()=>clearTimeout(pt2));
+    item.addEventListener('touchmove',()=>clearTimeout(pt2));
     list.appendChild(item);
   });
 }
@@ -1222,6 +1225,21 @@ function exportBilan() {
 // ══════════════════════
 //  DELETE / MODAL
 // ══════════════════════
+function confirmDeleteSession(idx) {
+  const g = groups[curGroup];
+  const sess = g.sessions[idx];
+  document.getElementById('modalTitle').textContent = 'Supprimer cette séance ?';
+  document.getElementById('modalSub').textContent   = `Séance du ${formatDate(sess.date)} — cette action est irréversible.`;
+  document.getElementById('modalConfirm').onclick   = () => {
+    g.sessions.splice(idx, 1);
+    save();
+    toast('🗑️ Séance supprimée');
+    closeModal();
+    renderGroup();
+  };
+  document.getElementById('overlay').classList.add('show');
+}
+
 function confirmDelete(idx) {
   document.getElementById('modalTitle').textContent='Supprimer ce groupe ?';
   document.getElementById('modalSub').textContent=`"${groups[idx].name}" et toutes ses séances seront supprimés.`;
