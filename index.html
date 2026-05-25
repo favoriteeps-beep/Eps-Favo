@@ -135,6 +135,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .sess-date{font-weight:700;font-size:15px;font-family:'JetBrains Mono',monospace}
 .sess-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .sess-item:hover .del-sess-btn { opacity:1 !important; }
+@media (hover: hover) { .del-sess-btn { opacity:0.4 !important; } .sess-item:hover .del-sess-btn { opacity:1 !important; } }
+@media (hover: none) { .del-sess-btn { display:none !important; } }
 .sess-chevron{margin-left:auto;color:var(--muted);flex-shrink:0}
 
 /* BILAN */
