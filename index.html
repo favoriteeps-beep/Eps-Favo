@@ -741,7 +741,14 @@ function renderAppel() {
 
       <!-- Investissement -->
       <div class="invest-wrap ${status==='present'?'show':''}" id="inv_${i}">
-        <div class="invest-label">Investissement</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="invest-label">Investissement</div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--orange);font-weight:700">
+            <input type="checkbox" id="tenue_${i}" ${saved.tenue?'checked':''} onchange="setTenue(${i},this.checked)"
+              style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer">
+            👕 Oubli tenue
+          </label>
+        </div>
         <div class="invest-row">
           <div class="i-btn ${invest==='super'?'on':''}"    onclick="setInvest(${i},'super')">🟢<span class="i-label">Super</span></div>
           <div class="i-btn ${invest==='moyen'?'on':''}"    onclick="setInvest(${i},'moyen')">🟡<span class="i-label">Moyen</span></div>
@@ -792,6 +799,12 @@ function setDispDate(i, val) {
   pendingAtt[s.id].dispenseUntil = val;
 }
 
+function setTenue(i, val) {
+  const s = groups[curGroup].students[i];
+  if (!pendingAtt[s.id]) pendingAtt[s.id] = {};
+  pendingAtt[s.id].tenue = val;
+}
+
 function setNote(i, val) {
   const s = groups[curGroup].students[i];
   if (!pendingAtt[s.id]) pendingAtt[s.id] = {};
@@ -822,6 +835,7 @@ function saveSession() {
       status: a.status || 'absent',
       invest: a.invest || null,
       dispenseUntil: a.dispenseUntil || '',
+      tenue: a.tenue || false,
       note: a.note || '',
     };
   });
@@ -858,6 +872,14 @@ function renderBilan() {
     return;
   }
 
+  // Export button
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn btn-ghost';
+  exportBtn.style.marginBottom = '16px';
+  exportBtn.innerHTML = '📥 Exporter en Excel';
+  exportBtn.onclick = exportBilan;
+  list.appendChild(exportBtn);
+
   // legend
   const legend = document.createElement('div');
   legend.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;';
@@ -866,7 +888,8 @@ function renderBilan() {
     <span class="pill pill-yellow">🟡 Moyen</span>
     <span class="pill pill-red">🔴 Peu investi</span>
     <span style="background:rgba(248,81,73,.12);color:var(--red)" class="pill">❌ Absent</span>
-    <span style="background:rgba(210,153,34,.12);color:var(--yellow)" class="pill">🩹 Disp.</span>`;
+    <span style="background:rgba(210,153,34,.12);color:var(--yellow)" class="pill">🩹 Disp.</span>
+    <span style="background:rgba(227,137,75,.15);color:var(--orange)" class="pill">👕 Oubli tenue</span>`;
   list.appendChild(legend);
 
   const lbl = document.createElement('div');
@@ -875,21 +898,39 @@ function renderBilan() {
   list.appendChild(lbl);
 
   g.students.forEach(stu => {
-    let P=0, A=0, D=0, super_=0, moyen=0, passable=0;
-    const dots = sessions.map(sess => {
+    let P=0, A=0, D=0, super_=0, moyen=0, passable=0, tenues=0;
+    const remarks = [];
+
+    const dots = sessions.map((sess, si) => {
       const att = (sess.attendance||[]).find(a => a.id === stu.id);
       if (!att) return `<div class="bdot" style="background:var(--s3);color:var(--muted)" title="${formatDate(sess.date)}">?</div>`;
-      if (att.status==='absent')    { A++; return `<div class="bdot bdot-absent"    title="${formatDate(sess.date)}">A</div>`; }
-      if (att.status==='dispensed') { D++; return `<div class="bdot bdot-dispensed"  title="${formatDate(sess.date)}">D</div>`; }
+      if (att.status==='absent')    { A++; return `<div class="bdot bdot-absent"    title="${formatDate(sess.date)}${att.note?' · '+att.note:''}">A</div>`; }
+      if (att.status==='dispensed') { D++; return `<div class="bdot bdot-dispensed" title="${formatDate(sess.date)}${att.note?' · '+att.note:''}">D</div>`; }
       P++;
-      if (att.invest==='super')    { super_++;   return `<div class="bdot bdot-p-super"    title="${formatDate(sess.date)} · Super">★</div>`; }
-      if (att.invest==='moyen')    { moyen++;    return `<div class="bdot bdot-p-moyen"    title="${formatDate(sess.date)} · Moyen">◑</div>`; }
-      if (att.invest==='passable') { passable++; return `<div class="bdot bdot-p-passable" title="${formatDate(sess.date)} · Peu investi">▽</div>`; }
-      return `<div class="bdot bdot-p-none" title="${formatDate(sess.date)} · Présent">P</div>`;
+      if (att.tenue) tenues++;
+      if (att.note)  remarks.push({ date: formatDate(sess.date), note: att.note });
+
+      let cls = 'bdot-p-none', sym = 'P';
+      if (att.invest==='super')    { super_++;   cls='bdot-p-super';    sym='★'; }
+      if (att.invest==='moyen')    { moyen++;    cls='bdot-p-moyen';    sym='◑'; }
+      if (att.invest==='passable') { passable++; cls='bdot-p-passable'; sym='▽'; }
+      const tenueMark = att.tenue ? ' 👕' : '';
+      const noteInfo  = att.note  ? ` · 💬 ${att.note}` : '';
+      return `<div class="bdot ${cls}" title="${formatDate(sess.date)}${tenueMark}${noteInfo}">${sym}${att.tenue?'<span style="font-size:8px;position:absolute;top:-2px;right:-2px">👕</span>':''}</div>`;
     });
 
     const total = P+A+D;
     const pct = total ? Math.round(P/total*100) : 0;
+
+    const remarksHtml = remarks.length ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">💬 Remarques</div>
+        ${remarks.map(r => `
+          <div style="font-size:13px;padding:6px 10px;background:var(--s2);border-radius:8px;margin-bottom:4px;border-left:2px solid var(--accent)">
+            <span style="color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace">${r.date}</span><br>
+            ${r.note}
+          </div>`).join('')}
+      </div>` : '';
 
     const card = document.createElement('div');
     card.className = 'bilan-card';
@@ -906,11 +947,61 @@ function renderBilan() {
         <span class="pill pill-green">✅ ${P} présences</span>
         <span class="pill pill-red">❌ ${A} absences</span>
         ${D ? `<span class="pill pill-yellow">🩹 ${D} dispenses</span>` : ''}
+        ${tenues ? `<span style="background:rgba(227,137,75,.15);color:var(--orange)" class="pill">👕 ${tenues} oubli${tenues>1?'s':''} tenue</span>` : ''}
         ${super_ ? `<span class="pill pill-green">★ ${super_} super</span>` : ''}
         ${passable ? `<span class="pill pill-red">▽ ${passable} peu investi</span>` : ''}
-      </div>`;
+      </div>
+      ${remarksHtml}`;
     list.appendChild(card);
   });
+}
+
+// ══════════════════════════════
+//  EXPORT EXCEL
+// ══════════════════════════════
+function exportBilan() {
+  const g = groups[curGroup];
+  const sessions = g.sessions || [];
+  const rows = [];
+
+  // Header row
+  const header = ['Nom', 'Prénom', 'Classe', '% Présence', 'Présences', 'Absences', 'Dispenses', 'Oublis tenue', 'Super', 'Moyen', 'Peu investi'];
+  sessions.forEach(s => header.push(formatDate(s.date)));
+  header.push('Remarques');
+  rows.push(header);
+
+  g.students.forEach(stu => {
+    let P=0, A=0, D=0, super_=0, moyen=0, passable=0, tenues=0;
+    const remarks = [];
+    const sessCells = sessions.map(sess => {
+      const att = (sess.attendance||[]).find(a => a.id === stu.id);
+      if (!att) return '?';
+      if (att.status==='absent')    { A++; return 'Absent'; }
+      if (att.status==='dispensed') { D++; return 'Dispensé'; }
+      P++;
+      if (att.tenue) tenues++;
+      if (att.note)  remarks.push(`${formatDate(sess.date)}: ${att.note}`);
+      if (att.invest==='super')    { super_++;   return 'Présent - Super' + (att.tenue?' 👕':''); }
+      if (att.invest==='moyen')    { moyen++;    return 'Présent - Moyen' + (att.tenue?' 👕':''); }
+      if (att.invest==='passable') { passable++; return 'Présent - Peu investi' + (att.tenue?' 👕':''); }
+      return 'Présent' + (att.tenue?' 👕':'');
+    });
+    const total = P+A+D;
+    const pct = total ? Math.round(P/total*100)+'%' : '0%';
+    rows.push([stu.nom, stu.prenom, stu.classe||'', pct, P, A, D, tenues, super_, moyen, passable, ...sessCells, remarks.join(' | ')]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // Column widths
+  ws['!cols'] = [
+    {wch:20},{wch:16},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12},{wch:8},{wch:8},{wch:12},
+    ...sessions.map(()=>({wch:18})),
+    {wch:50}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, g.name.slice(0,31));
+  XLSX.writeFile(wb, `Bilan_${g.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('📥 Export Excel téléchargé !');
 }
 
 // ══════════════════════════════
