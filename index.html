@@ -373,7 +373,7 @@ const APSAS = [
   {
     id: 'natation',
     icon: '🏊',
-    name: 'Natation',
+    name: 'Natation 6ème',
     color: '#58a6ff',
     evals: [
       { id: 'savoir-nager', name: 'Test du savoir nager', icon: '🛟', desc: '11 étapes à valider' },
@@ -399,29 +399,28 @@ const SN_STEPS = [
 
 // 20m niveaux : { niveau, note, desc }
 const NIVEAUX_20M = [
-  { n:1, note:11, label:'Niveau 1', desc:'L\'élève réalise le 20m mais avec des difficultés importantes (arrêts, appuis au sol ou sur les lignes).' },
-  { n:2, note:12, label:'Niveau 2', desc:'L\'élève réalise le 20m sans arrêt mais avec une nage peu efficace (beaucoup de fatigue visible).' },
-  { n:3, note:13, label:'Niveau 3', desc:'L\'élève réalise le 20m avec une nage correcte, quelques difficultés ponctuelles.' },
-  { n:4, note:14, label:'Niveau 4', desc:'L\'élève réalise le 20m avec une nage maîtrisée et régulière.' },
-  { n:5, note:null, label:'Niveau 5 → Cible', desc:'L\'élève maîtrise le 20m. Note calculée selon le tableau temps/coups de bras (15 à 20).' },
+  { n:1, note:11, label:'Niveau 1', desc:'Planche bras tendus, battements de jambes, corps le plus aligné et allongé possible, respiration LIBRE.' },
+  { n:2, note:12, label:'Niveau 2', desc:'Planche bras tendus, battements de jambes, corps le plus aligné et allongé possible, respiration SUR LE CÔTÉ.' },
+  { n:3, note:13, label:'Niveau 3', desc:'Crawl avec planche, un bras après l\'autre quand le bras sort de l\'eau, respiration sur le côté.' },
+  { n:4, note:14, label:'Niveau 4', desc:'Crawl nage complète, respiration obligatoire sur le côté, pas de rupture dans la nage ou d\'arrêt.' },
+  { n:5, note:null, label:'Niveau 5 → Cible', desc:'Nage complète en Crawl, rapport Coups de bras / Temps en essayant d\'aller vite grâce à l\'utilisation efficace des bras. Note entre 15 et 20.' },
 ];
 
 // Tableau natation : [temps_sec][coups_bras] -> note
 // Ligne = TPS (18 à 40 par pas de 2), Colonne = coups (18 à 40 par pas de 2)
 const TPS_VALUES = [18,20,22,24,26,28,30,32,34,36,38,40];
 const CBR_VALUES = [18,20,22,24,26,28,30,32,34,36,38,40];
-// Table lue depuis la photo (valeurs en dixièmes)
 const NATATION_TABLE = {
-  18: {18:20,  20:20,  22:19.5,24:19,  26:18.5,28:18},
-  20: {18:20,  20:19.5,22:19,  24:18.5,26:18,  28:17.5,30:17},
-  22: {18:19.5,20:19,  22:18.5,24:18,  26:17.5,28:17,  30:16.5,32:16},
-  24: {18:19,  20:18.5,22:18,  24:17.5,26:17,  28:16.5,30:16,  32:15.5,34:15},
-  26: {18:18.5,20:18,  22:17.5,24:17,  26:16.5,28:16,  30:15.5,32:15},
-  28: {18:18,  20:17.5,22:17,  24:16.5,26:16,  28:15.5,30:15},
-  30: {18:17.5,20:17,  22:16.5,24:16,  26:15.5,28:15},
-  32: {18:17,  20:16.5,22:16,  24:15.5,26:15},
-  34: {18:16.5,20:16,  22:15.5,24:15},
-  36: {18:16,  20:15.5,22:15},
+  18: {18:20,  20:20,   22:19.5, 24:19,   26:18.5, 28:18,   30:17.5, 32:17,   34:16.5, 36:16,   38:15.5, 40:15},
+  20: {18:20,  20:19.5, 22:19,   24:18.5, 26:18,   28:17.5, 30:17,   32:16.5, 34:16,   36:15.5, 38:15},
+  22: {18:19.5,20:19,   22:18.5, 24:18,   26:17.5, 28:17,   30:16.5, 32:16,   34:15.5, 36:15},
+  24: {18:19,  20:18.5, 22:18,   24:17.5, 26:17,   28:16.5, 30:16,   32:15.5, 34:15},
+  26: {18:18.5,20:18,   22:17.5, 24:17,   26:16.5, 28:16,   30:15.5, 32:15},
+  28: {18:18,  20:17.5, 22:17,   24:16.5, 26:16,   28:15.5, 30:15},
+  30: {18:17.5,20:17,   22:16.5, 24:16,   26:15.5, 28:15},
+  32: {18:17,  20:16.5, 22:16,   24:15.5, 26:15},
+  34: {18:16.5,20:16,   22:15.5, 24:15},
+  36: {18:16,  20:15.5, 22:15},
   38: {18:15.5,20:15},
   40: {18:15},
 };
@@ -438,22 +437,22 @@ function getNatationNote(tps, cbr) {
 
 // Aisance aquatique
 const AISANCE_TYPES = [
-  { id:'coulee', name:'Coulée ventrale/dorsale', icon:'🤽',
+  { id:'coulee', name:'Coulées', icon:'🤽',
     niveaux:[
-      {n:1,note:12,desc:'Coulée ventrale ou dorsale de moins de 5 m.'},
-      {n:2,note:14,desc:'Coulée ventrale ou dorsale de 5 à 7,5 m.'},
-      {n:3,note:16,desc:'Coulée ventrale ou dorsale de 7,5 à 10 m.'},
-      {n:4,note:18,desc:'Coulée ventrale ou dorsale de 10 à 12,5 m.'},
-      {n:5,note:20,desc:'Coulée ventrale ou dorsale de plus de 12,5 m.'},
+      {n:1,note:12,desc:'Pousser sur le mur, coulée sur le ventre, arriver à 3m minimum.'},
+      {n:2,note:14,desc:'Pousser sur le mur, coulée sur le ventre, arriver à 5m minimum.'},
+      {n:3,note:16,desc:'Pousser sur le mur, coulée sur le dos, arriver à 5m minimum.'},
+      {n:4,note:18,desc:'Pousser sur le mur, coulée sur le ventre puis demi-tour sur le dos, arriver à 5m minimum.'},
+      {n:5,note:20,desc:'Pousser sur le mur, coulée sur le ventre puis tour complet, arriver à 5m minimum.'},
     ]
   },
-  { id:'anneaux', name:'Parcours anneaux en apnée', icon:'🤿',
+  { id:'cerceaux', name:'Cerceaux en apnée', icon:'🤿',
     niveaux:[
-      {n:1,note:12,desc:'Ramasse 1 anneau en apnée.'},
-      {n:2,note:14,desc:'Ramasse 2 anneaux en apnée.'},
-      {n:3,note:16,desc:'Ramasse 3 anneaux en apnée.'},
-      {n:4,note:18,desc:'Ramasse 4 anneaux en apnée.'},
-      {n:5,note:20,desc:'Ramasse 5 anneaux ou plus en apnée.'},
+      {n:1,note:12,desc:'En apnée, récupérer 1 cerceau.'},
+      {n:2,note:14,desc:'En apnée, récupérer 2 cerceaux.'},
+      {n:3,note:16,desc:'En apnée, récupérer 3 cerceaux.'},
+      {n:4,note:18,desc:'En apnée, récupérer 4 cerceaux.'},
+      {n:5,note:20,desc:'En apnée, récupérer 5 cerceaux.'},
     ]
   }
 ];
