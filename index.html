@@ -330,7 +330,24 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="save-bar"><button class="btn btn-ghost btn-sm" style="width:100%" onclick="exportEvalExcel()">📥 Exporter Excel</button></div>
 </div>
 
-<!-- ══ S-SAVOIR-NAGER : étape par étape ══ -->
+<!-- ══ S-CIRQUE-GROUPES : gestion groupes cirque ══ -->
+<div class="screen" id="s-cirque-groupes">
+  <div id="cirqueGroupesContent"></div>
+</div>
+
+<!-- ══ S-CIRQUE-ASSIGN : assigner élèves aux groupes ══ -->
+<div class="screen" id="s-cirque-assign">
+  <div id="cirqueAssignContent"></div>
+  <div style="height:80px"></div>
+  <div class="save-bar"><button class="btn btn-primary" onclick="saveCirqueGroups()">💾 Enregistrer les groupes</button></div>
+</div>
+
+<!-- ══ S-CIRQUE-EVAL : évaluation d'un groupe ══ -->
+<div class="screen" id="s-cirque-eval">
+  <div id="cirqueEvalContent"></div>
+  <div style="height:80px"></div>
+  <div class="save-bar"><button class="btn btn-primary" onclick="saveCirqueEval()">💾 Enregistrer l'évaluation</button></div>
+</div>
 <div class="screen" id="s-savoir-nager">
   <div class="sn-progress" id="snProgress"></div>
   <div id="snContent"></div>
@@ -360,14 +377,20 @@ let curGroup = null;
 let curSess  = null;
 let pendingAtt = {};
 let importedStudents = [];
-let curApsa  = null;  // apsa id
-let curEvalGroup = null; // group idx for eval
-let snStudentId  = null; // student being evaluated (savoir nager)
-let snSteps      = [];   // steps results
-let curEvalType  = null; // 'savoir-nager' | '20m' | 'aisance'
+let curApsa  = null;
+let curEvalGroup = null;
+let snStudentId  = null;
+let snSteps      = [];
+let curEvalType  = null;
 
-function save()      { DB.set('eps_groups', groups); }
-function saveEvals() { DB.set('eps_evals', evals); }
+// Cirque specific
+let cirqueGroups    = DB.get('eps_cirque_groups') || {}; // { groupIdx: { groupes: [{id,name,studentIds}] } }
+let curCirqueGroup  = null; // which circus group (1,2,3...) is being evaluated
+let pendingCirqueEval = {}; // collective + individual scores being entered
+
+function save()           { DB.set('eps_groups', groups); }
+function saveEvals()      { DB.set('eps_evals', evals); }
+function saveCirqueData() { DB.set('eps_cirque_groups', cirqueGroups); }
 
 // ══════════════════════
 //  APSA DEFINITIONS
@@ -381,7 +404,16 @@ const APSAS = [
     evals: [
       { id: 'savoir-nager', name: 'Test du savoir nager', icon: '🛟', desc: '11 étapes à valider' },
       { id: '20m',          name: '20m départ dans l\'eau', icon: '⏱️', desc: '5 niveaux · note /20' },
-      { id: 'aisance',      name: 'Aisance aquatique', icon: '🌊', desc: 'Coulée ou anneaux · 5 niveaux' },
+      { id: 'aisance',      name: 'Aisance aquatique', icon: '🌊', desc: 'Coulée ou cerceaux · 5 niveaux' },
+    ]
+  },
+  {
+    id: 'cirque',
+    icon: '🎪',
+    name: 'Cirque 2nde',
+    color: '#bc8cff',
+    evals: [
+      { id: 'cirque-eval', name: 'Évaluation cirque', icon: '🤹', desc: 'Note collective /16 + individuelle /4 = /20' },
     ]
   }
 ];
@@ -478,10 +510,11 @@ function goBack() {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(prev).classList.add('active');
   header(prev);
-  if (prev==='s-home')       { renderHome(); }
-  if (prev==='s-group')      { renderGroup(); }
-  if (prev==='s-apsa-detail'){ renderApsaDetail(); }
-  if (prev==='s-apsa-group') { renderEvalStudentList(); }
+  if (prev==='s-home')         { renderHome(); }
+  if (prev==='s-group')        { renderGroup(); }
+  if (prev==='s-apsa-detail')  { renderApsaDetail(); }
+  if (prev==='s-apsa-group')   { renderEvalStudentList(); }
+  if (prev==='s-cirque-groupes') { renderCirqueGroupes(); }
 }
 function header(id) {
   const grp  = curGroup!==null ? groups[curGroup] : null;
@@ -495,11 +528,14 @@ function header(id) {
     's-group':       [grp?.name||'',''],
     's-appel':       ['Appel', grp?.name||''],
     's-bilan':       ['Bilan cycle', grp?.name||''],
-    's-apsa-detail': [apsa?.name||'', 'Choisir le groupe'],
-    's-apsa-group':  [evalGrp?.name||'', apsa?.name||''],
-    's-savoir-nager':[snStu ? `${snStu.nom} ${snStu.prenom}` : 'Savoir nager', 'Test étape par étape'],
-    's-20m':         [snStu ? `${snStu.nom} ${snStu.prenom}` : '20m départ eau', evalGrp?.name||''],
-    's-aisance':     [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Aisance aquatique', evalGrp?.name||''],
+    's-apsa-detail':    [apsa?.name||'', 'Choisir le groupe'],
+    's-apsa-group':     [evalGrp?.name||'', apsa?.name||''],
+    's-savoir-nager':   [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Savoir nager', 'Test étape par étape'],
+    's-20m':            [snStu ? `${snStu.nom} ${snStu.prenom}` : '20m départ eau', evalGrp?.name||''],
+    's-aisance':        [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Aisance aquatique', evalGrp?.name||''],
+    's-cirque-groupes': ['Cirque 2nde', evalGrp?.name||''],
+    's-cirque-assign':  ['Groupes cirque', evalGrp?.name||''],
+    's-cirque-eval':    [`Groupe ${curCirqueGroup||''}`, evalGrp?.name||''],
   };
   const [t,s] = titles[id]||['EPS Pro',''];
   document.getElementById('topTitle').textContent = t;
@@ -633,6 +669,17 @@ function renderEvalStudentList() {
   const g    = groups[curEvalGroup];
   const apsa = APSAS.find(a=>a.id===curApsa);
   const ev   = apsa?.evals.find(e=>e.id===curEvalType);
+
+  // Cirque goes directly to group management, not student list
+  if (curEvalType === 'cirque-eval') {
+    renderCirqueGroupes();
+    // swap screen
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('s-cirque-groupes').classList.add('active');
+    stack[stack.length-1] = 's-cirque-groupes';
+    header('s-cirque-groupes');
+    return;
+  }
   const list = document.getElementById('evalStudentList');
   list.innerHTML='';
   const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent=`${ev?.name||''} · ${g.name}`;
@@ -668,11 +715,345 @@ function renderEvalStudentList() {
 
 function startEval(studentId) {
   snStudentId = studentId;
-  const stu = groups[curEvalGroup].students.find(s=>s.id===studentId);
   if (curEvalType==='savoir-nager') { startSavoirNager(studentId); nav('s-savoir-nager'); }
   else if (curEvalType==='20m')     { render20m(studentId); nav('s-20m'); }
   else if (curEvalType==='aisance') { renderAisance(studentId); nav('s-aisance'); }
-  header(curEvalType==='savoir-nager'?'s-savoir-nager':curEvalType==='20m'?'s-20m':'s-aisance');
+  else if (curEvalType==='cirque-eval') { renderCirqueGroupes(); nav('s-cirque-groupes'); }
+  header(curEvalType==='savoir-nager'?'s-savoir-nager':curEvalType==='20m'?'s-20m':curEvalType==='aisance'?'s-aisance':'s-cirque-groupes');
+}
+
+// ══════════════════════
+//  CIRQUE
+// ══════════════════════
+const CIRQUE_INDUCTEURS = [
+  {id:'contraste', name:'Contraste'},
+  {id:'unisson',   name:'Unisson'},
+  {id:'canon',     name:'Canon'},
+  {id:'miroir',    name:'Miroir'},
+  {id:'mime',      name:'Mime'},
+];
+const CIRQUE_BONUS = [
+  {id:'ange_regard_electro', name:'Ange / Regard public / Électrocution'},
+];
+
+function getCirqueKey() {
+  return `cirque_${curEvalGroup}`;
+}
+
+// Render cirque groupes management screen
+function renderCirqueGroupes() {
+  const g   = groups[curEvalGroup];
+  const key = getCirqueKey();
+  if (!cirqueGroups[key]) cirqueGroups[key] = { groupes:[] };
+  const data = cirqueGroups[key];
+  const content = document.getElementById('cirqueGroupesContent');
+  content.innerHTML = '';
+
+  // Header
+  const lbl = document.createElement('div');
+  lbl.className = 'slabel';
+  lbl.textContent = `${g.name} · Groupes cirque`;
+  content.appendChild(lbl);
+
+  // Assign button
+  const assignBtn = document.createElement('button');
+  assignBtn.className = 'btn btn-primary';
+  assignBtn.innerHTML = '👥 Assigner les élèves aux groupes';
+  assignBtn.onclick = () => { renderCirqueAssign(); nav('s-cirque-assign'); };
+  content.appendChild(assignBtn);
+
+  if (!data.groupes.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.innerHTML = '<div class="empty-icon">🎪</div><div class="empty-text">Aucun groupe défini.<br>Assigne d\'abord les élèves aux groupes.</div>';
+    content.appendChild(empty);
+    return;
+  }
+
+  // List groups with eval button
+  const lbl2 = document.createElement('div');
+  lbl2.className = 'slabel';
+  lbl2.textContent = `${data.groupes.length} groupes · Évaluations`;
+  content.appendChild(lbl2);
+
+  data.groupes.forEach((grp, gi) => {
+    const key2 = `${getCirqueKey()}_grp${grp.id}`;
+    const evalDone = evals[key2];
+    const card = document.createElement('div');
+    card.className = 'card';
+    const members = grp.studentIds.map(sid => {
+      const s = g.students.find(x => x.id === sid);
+      return s ? `${s.nom} ${s.prenom}` : '?';
+    }).join(', ');
+    card.innerHTML = `
+      <div class="card-row">
+        <div style="flex:1;min-width:0">
+          <div class="card-row" style="gap:8px;margin-bottom:4px">
+            <div class="card-title">Groupe ${grp.id}</div>
+            ${evalDone ? `<span class="pill pill-green">✅ Évalué · ${evalDone.noteFinale}/20</span>` : '<span class="pill pill-yellow">⏳ Non évalué</span>'}
+          </div>
+          <div class="card-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${members}</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>`;
+    card.onclick = () => { curCirqueGroup = grp.id; renderCirqueEval(grp); nav('s-cirque-eval'); };
+    content.appendChild(card);
+  });
+
+  // Export button
+  const expBtn = document.createElement('button');
+  expBtn.className = 'btn btn-ghost';
+  expBtn.style.marginTop = '8px';
+  expBtn.innerHTML = '📥 Exporter notes Excel';
+  expBtn.onclick = exportCirqueExcel;
+  content.appendChild(expBtn);
+}
+
+// Assign students to groups
+function renderCirqueAssign() {
+  const g   = groups[curEvalGroup];
+  const key = getCirqueKey();
+  if (!cirqueGroups[key]) cirqueGroups[key] = { groupes:[] };
+  const data = cirqueGroups[key];
+
+  // Build assignment map: studentId -> groupId
+  let assignment = {};
+  data.groupes.forEach(grp => grp.studentIds.forEach(sid => assignment[sid] = grp.id));
+
+  // Number of groups
+  let nbGroupes = data.groupes.length || Math.ceil(g.students.length / 5);
+
+  const content = document.getElementById('cirqueAssignContent');
+
+  function render() {
+    content.innerHTML = `
+      <div class="slabel">Nombre de groupes</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <button class="btn btn-ghost btn-sm" onclick="changeNbGrp(-1)" style="font-size:20px;padding:8px 16px">−</button>
+        <div style="font-size:24px;font-weight:800;min-width:40px;text-align:center">${nbGroupes}</div>
+        <button class="btn btn-ghost btn-sm" onclick="changeNbGrp(1)"  style="font-size:20px;padding:8px 16px">+</button>
+      </div>
+      <div class="slabel">${g.students.length} élèves — assigne chacun à un groupe</div>
+      ${g.students.map((s,i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px">
+          <div style="font-weight:600;font-size:14px">${s.nom} ${s.prenom}<br><span style="font-size:11px;color:var(--muted)">${s.classe||''}</span></div>
+          <select id="grp_${s.id}" onchange="setStudentGroup('${s.id}',this.value)" style="background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:6px 10px;font-family:Outfit,sans-serif;font-size:14px;outline:none">
+            <option value="">— Groupe —</option>
+            ${Array.from({length:nbGroupes},(_,k)=>`<option value="${k+1}" ${assignment[s.id]==k+1?'selected':''}>Groupe ${k+1}</option>`).join('')}
+          </select>
+        </div>`).join('')}`;
+  }
+
+  window.changeNbGrp = function(delta) {
+    nbGroupes = Math.max(1, nbGroupes + delta);
+    render();
+  };
+  window.setStudentGroup = function(sid, val) {
+    if (val) assignment[sid] = parseInt(val);
+    else delete assignment[sid];
+  };
+  window.saveCirqueGroups = function() {
+    // Build groupes array
+    const grpMap = {};
+    Object.entries(assignment).forEach(([sid, gid]) => {
+      if (!grpMap[gid]) grpMap[gid] = [];
+      grpMap[gid].push(sid);
+    });
+    cirqueGroups[key].groupes = Object.entries(grpMap).map(([id, sids]) => ({
+      id: parseInt(id), studentIds: sids
+    })).sort((a,b) => a.id - b.id);
+    saveCirqueData();
+    toast('✅ Groupes enregistrés !');
+    setTimeout(() => { renderCirqueGroupes(); goBack(); }, 400);
+  };
+
+  render();
+}
+
+// Evaluate a circus group
+function renderCirqueEval(grp) {
+  const g    = groups[curEvalGroup];
+  const key2 = `${getCirqueKey()}_grp${grp.id}`;
+  const saved = evals[key2] || {};
+
+  // State
+  let collective = saved.collective || {
+    activite: null, fluidite: null, wouah: null,
+    inducteurs: {}, bonusSpecial: null, juge: null,
+  };
+  let individual = saved.individual || {};
+
+  const content = document.getElementById('cirqueEvalContent');
+
+  function calcTotal() {
+    const c = collective;
+    const base = (c.activite||0) + (c.fluidite||0) + (c.wouah||0);
+    const ind = Object.values(CIRQUE_INDUCTEURS).reduce((s,x) => s + (c.inducteurs[x.id]||0), 0);
+    const bonus = c.bonusSpecial || 0;
+    const juge = c.juge || 0;
+    const collectif = base + ind + bonus + juge;
+    return { collectif: Math.min(collectif, 16) };
+  }
+
+  function render() {
+    const { collectif } = calcTotal();
+    const members = grp.studentIds.map(sid => g.students.find(x => x.id === sid)).filter(Boolean);
+
+    content.innerHTML = `
+      <div class="slabel" style="margin-top:0">🎪 Groupe ${grp.id} · Note collective /16</div>
+
+      <!-- Activité -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:10px">🎭 Activité des circassiens <span style="float:right;color:var(--accent)">/3</span></div>
+        ${[0,1,2,3].map(v=>`<button onclick="setC('activite',${v})" style="margin-right:6px;padding:8px 14px;border-radius:8px;border:1px solid ${collective.activite===v?'var(--accent)':'var(--border)'};background:${collective.activite===v?'rgba(88,166,255,.2)':'var(--s2)'};color:${collective.activite===v?'var(--accent)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">0=En permanence inactifs · 1=Souvent · 2=Rarement · 3=Tous actifs</div>
+      </div>
+
+      <!-- Fluidité -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:10px">🌊 Fluidité de l'enchaînement <span style="float:right;color:var(--accent)">/3</span></div>
+        ${[0,1,2,3].map(v=>`<button onclick="setC('fluidite',${v})" style="margin-right:6px;padding:8px 14px;border-radius:8px;border:1px solid ${collective.fluidite===v?'var(--accent)':'var(--border)'};background:${collective.fluidite===v?'rgba(88,166,255,.2)':'var(--s2)'};color:${collective.fluidite===v?'var(--accent)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">0=En permanence arrêts · 1=Souvent · 2=Rarement · 3=Jamais d'arrêt</div>
+      </div>
+
+      <!-- WOUAHHH -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:10px">🤩 Maîtrise des WOUAHHH <span style="float:right;color:var(--accent)">/3</span></div>
+        ${[0,1,2,3].map(v=>`<button onclick="setC('wouah',${v})" style="margin-right:6px;padding:8px 14px;border-radius:8px;border:1px solid ${collective.wouah===v?'var(--accent)':'var(--border)'};background:${collective.wouah===v?'rgba(88,166,255,.2)':'var(--s2)'};color:${collective.wouah===v?'var(--accent)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">0=Trop souvent non maîtrisés · 1=Moyennement · 2=Rarement · 3=Toutes figures maîtrisées</div>
+      </div>
+
+      <!-- Inducteurs -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:4px">🔗 Inducteurs repérés <span style="float:right;color:var(--accent)">/4</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Note chaque inducteur que tu repères (0 / 0.5 / 1)</div>
+        ${CIRQUE_INDUCTEURS.map(ind => `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-weight:600;font-size:14px">${ind.name}</div>
+            <div style="display:flex;gap:6px">
+              ${[0,0.5,1].map(v=>`<button onclick="setInducteur('${ind.id}',${v})" style="padding:6px 10px;border-radius:7px;border:1px solid ${collective.inducteurs[ind.id]===v?'var(--purple)':'var(--border)'};background:${collective.inducteurs[ind.id]===v?'rgba(188,140,255,.2)':'var(--s2)'};color:${collective.inducteurs[ind.id]===v?'var(--purple)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:13px">${v}</button>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Bonus spécial -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:10px">⭐ Ange / Regard public / Électrocution <span style="float:right;color:var(--accent)">/1</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">1 point si au moins un de ces éléments est visible</div>
+        ${[0,1].map(v=>`<button onclick="setC('bonusSpecial',${v})" style="margin-right:8px;padding:8px 18px;border-radius:8px;border:1px solid ${collective.bonusSpecial===v?'var(--yellow)':'var(--border)'};background:${collective.bonusSpecial===v?'rgba(210,153,34,.2)':'var(--s2)'};color:${collective.bonusSpecial===v?'var(--yellow)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:15px">${v===0?'0 — Non vu':'1 — Vu !'}</button>`).join('')}
+      </div>
+
+      <!-- Juge -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:10px">⚖️ Efficacité du juge <span style="float:right;color:var(--accent)">/2</span></div>
+        ${[0,1,2].map(v=>`<button onclick="setC('juge',${v})" style="margin-right:6px;padding:8px 14px;border-radius:8px;border:1px solid ${collective.juge===v?'var(--accent)':'var(--border)'};background:${collective.juge===v?'rgba(88,166,255,.2)':'var(--s2)'};color:${collective.juge===v?'var(--accent)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">0=+3pts d'écart · 1=2-3pts d'écart · 2=0-1pt d'écart</div>
+      </div>
+
+      <!-- Score collectif -->
+      <div style="background:rgba(188,140,255,.12);border:1px solid var(--purple);border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:4px">NOTE COLLECTIVE</div>
+        <div style="font-size:36px;font-weight:900;color:var(--purple)">${collectif}<span style="font-size:18px;color:var(--muted)">/16</span></div>
+      </div>
+
+      <!-- Notes individuelles -->
+      <div class="slabel">🎭 Notes individuelles /4</div>
+      ${members.map(s => {
+        const ind = individual[s.id] || {};
+        const total = (ind.regard||0) + (ind.role||0);
+        return `
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-weight:700">${s.nom} ${s.prenom}</div>
+            <span style="font-weight:800;color:var(--green);font-size:16px">${total}/4 → <span style="color:var(--accent)">${(collectif+total).toFixed(1)}/20</span></span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Regard / Gestuelle /2</div>
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            ${[0,1,2].map(v=>`<button onclick="setInd('${s.id}','regard',${v})" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${ind.regard===v?'var(--green)':'var(--border)'};background:${ind.regard===v?'rgba(63,185,80,.2)':'var(--s2)'};color:${ind.regard===v?'var(--green)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Rôle / Engagement /2</div>
+          <div style="display:flex;gap:6px">
+            ${[0,1,2].map(v=>`<button onclick="setInd('${s.id}','role',${v})" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${ind.role===v?'var(--green)':'var(--border)'};background:${ind.role===v?'rgba(63,185,80,.2)':'var(--s2)'};color:${ind.role===v?'var(--green)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}`;
+  }
+
+  window.setC = function(field, val) {
+    collective[field] = val;
+    render();
+  };
+  window.setInducteur = function(id, val) {
+    collective.inducteurs[id] = val;
+    render();
+  };
+  window.setInd = function(sid, field, val) {
+    if (!individual[sid]) individual[sid] = {};
+    individual[sid][field] = val;
+    render();
+  };
+  window.saveCirqueEval = function() {
+    const { collectif } = calcTotal();
+    const members = grp.studentIds.map(sid => g.students.find(x => x.id === sid)).filter(Boolean);
+    // Check all filled
+    if (collective.activite===null||collective.fluidite===null||collective.wouah===null||collective.juge===null) {
+      toast('⚠️ Remplis tous les critères collectifs'); return;
+    }
+    const key2 = `${getCirqueKey()}_grp${grp.id}`;
+    // Calculate each student's final note
+    members.forEach(s => {
+      const ind = individual[s.id] || {};
+      const indTotal = (ind.regard||0) + (ind.role||0);
+      if (!individual[s.id]) individual[s.id] = {};
+      individual[s.id].total = indTotal;
+      individual[s.id].noteFinale = parseFloat((collectif + indTotal).toFixed(1));
+    });
+    evals[key2] = {
+      collective, individual,
+      collectif, noteFinale: collectif,
+      date: new Date().toISOString().slice(0,10),
+    };
+    saveEvals();
+    toast('✅ Évaluation enregistrée !');
+    setTimeout(() => { renderCirqueGroupes(); goBack(); }, 400);
+  };
+
+  render();
+}
+
+function exportCirqueExcel() {
+  const g   = groups[curEvalGroup];
+  const key = getCirqueKey();
+  const data = cirqueGroups[key] || { groupes:[] };
+  const rows = [['Groupe','Nom','Prénom','Classe','Note collective /16','Regard /2','Rôle /2','Note individuelle /4','Note finale /20','Date']];
+
+  data.groupes.forEach(grp => {
+    const key2 = `${getCirqueKey()}_grp${grp.id}`;
+    const res = evals[key2];
+    grp.studentIds.forEach(sid => {
+      const s = g.students.find(x => x.id === sid);
+      if (!s) return;
+      if (res) {
+        const ind = res.individual[sid] || {};
+        rows.push([
+          `Groupe ${grp.id}`, s.nom, s.prenom, s.classe||'',
+          res.collectif, ind.regard||0, ind.role||0,
+          (ind.regard||0)+(ind.role||0),
+          ind.noteFinale||res.collectif,
+          res.date||''
+        ]);
+      } else {
+        rows.push([`Groupe ${grp.id}`, s.nom, s.prenom, s.classe||'','','','','','Non évalué','']);
+      }
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:10},{wch:20},{wch:16},{wch:12},{wch:18},{wch:10},{wch:10},{wch:18},{wch:14},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `Cirque_${g.name}`.slice(0,31));
+  XLSX.writeFile(wb, `Eval_Cirque_${g.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('📥 Export téléchargé !');
 }
 
 // ══════════════════════
@@ -1272,8 +1653,7 @@ function exportData() {
   const data = {
     version: 1,
     date: new Date().toISOString(),
-    groups,
-    evals,
+    groups, evals, cirqueGroups,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -1294,9 +1674,10 @@ function importData(event) {
       const data = JSON.parse(e.target.result);
       if (!data.groups) { toast('❌ Fichier invalide'); return; }
       if (!confirm(`Importer la sauvegarde du ${data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '?'} ?\nCela remplacera toutes tes données actuelles.`)) return;
-      groups = data.groups || [];
-      evals  = data.evals  || {};
-      save(); saveEvals();
+      groups      = data.groups      || [];
+      evals       = data.evals       || {};
+      cirqueGroups= data.cirqueGroups|| {};
+      save(); saveEvals(); saveCirqueData();
       renderHome();
       toast('✅ Données restaurées !');
     } catch { toast('❌ Fichier invalide'); }
