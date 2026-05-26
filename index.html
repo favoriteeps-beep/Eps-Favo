@@ -660,7 +660,16 @@ function renderEvalGroupPicker(ev) {
       <div class="card-title">${g.name}</div>
       <div class="card-meta">${g.students?.length||0} élèves</div>
     </div><div class="card-chevron">›</div></div>`;
-    card.onclick=()=>{ curEvalGroup=i; renderEvalStudentList(); nav('s-apsa-group'); };
+    card.onclick=()=>{ 
+      curEvalGroup=i; 
+      if (curEvalType === 'cirque-eval') {
+        renderCirqueGroupes();
+        nav('s-cirque-groupes');
+      } else {
+        renderEvalStudentList(); 
+        nav('s-apsa-group'); 
+      }
+    };
     list.appendChild(card);
   });
   const back=document.createElement('button'); back.className='btn btn-ghost'; back.style.marginTop='8px';
@@ -676,13 +685,15 @@ function renderEvalStudentList() {
   const apsa = APSAS.find(a=>a.id===curApsa);
   const ev   = apsa?.evals.find(e=>e.id===curEvalType);
 
-  // Cirque goes directly to group management, not student list
+  // Cirque goes directly to group management
   if (curEvalType === 'cirque-eval') {
     renderCirqueGroupes();
-    // swap screen
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById('s-cirque-groupes').classList.add('active');
-    stack[stack.length-1] = 's-cirque-groupes';
+    // Replace s-apsa-group in stack with s-cirque-groupes
+    const idx = stack.lastIndexOf('s-apsa-group');
+    if (idx !== -1) stack[idx] = 's-cirque-groupes';
+    else stack.push('s-cirque-groupes');
     header('s-cirque-groupes');
     return;
   }
