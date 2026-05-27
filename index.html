@@ -2092,10 +2092,15 @@ function renderDfRecords(studentId) {
     <div class="save-bar"><button class="btn btn-primary" onclick="saveDfRecords('${key}')">💾 Enregistrer</button></div>`;
 
   window.saveDfRecords = function(k) {
-    const r45  = parseFloat(document.getElementById('inp_r45')?.value.replace(',','.'));
-    const r130 = parseFloat(document.getElementById('inp_r130')?.value.replace(',','.'));
-    const r3   = parseFloat(document.getElementById('inp_r3')?.value.replace(',','.'));
-    if (!r45 || !r130 || !r3) { toast('⚠️ Remplis les 3 records'); return; }
+    const v45  = document.getElementById('inp_r45')?.value.replace(',','.');
+    const v130 = document.getElementById('inp_r130')?.value.replace(',','.');
+    const v3   = document.getElementById('inp_r3')?.value.replace(',','.');
+    const r45  = parseFloat(v45);
+    const r130 = parseFloat(v130);
+    const r3   = parseFloat(v3);
+    if (isNaN(r45) || isNaN(r130) || isNaN(r3) || !v45 || !v130 || !v3) {
+      toast('⚠️ Remplis les 3 records'); return;
+    }
     const noteRecord = parseFloat(((r45 + r130 + r3) / 3).toFixed(2));
     evals[k] = { record45:r45, record130:r130, record3:r3, noteRecord, date:new Date().toISOString().slice(0,10) };
     saveEvals();
