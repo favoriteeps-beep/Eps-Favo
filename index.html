@@ -781,8 +781,8 @@ function renderEvalStudentList() {
       } else if (curEvalType==='df-allure') {
         statusIcon='⚡'; statusText=`${res.vitesse} km/h → ${res.note}/20`; statusColor='var(--green)';
       } else if (curEvalType==='df-records') {
-        const nb = [res.record45, res.record130, res.record3].filter(v => v).length;
-        if (nb === 3) { statusIcon='⏱️'; statusText=`Note record: ${res.noteRecord}/20`; statusColor='var(--green)'; }
+        const nb = [res.record45, res.record130, res.record3].filter(v => v !== null && v !== undefined).length;
+        if (nb === 3 && res.noteRecord) { statusIcon='✅'; statusText=`Note record: ${res.noteRecord}/20`; statusColor='var(--green)'; }
         else { statusIcon='🟡'; statusText=`${nb}/3 records renseignés`; statusColor='var(--yellow)'; }
       } else if (curEvalType==='df-suivi') {
         statusIcon='📋'; statusText=`${res.total}/20`; statusColor='var(--green)';
@@ -2095,16 +2095,16 @@ function renderDfRecords(studentId) {
     const v45  = document.getElementById('inp_r45')?.value.replace(',','.');
     const v130 = document.getElementById('inp_r130')?.value.replace(',','.');
     const v3   = document.getElementById('inp_r3')?.value.replace(',','.');
-    const r45  = parseFloat(v45);
-    const r130 = parseFloat(v130);
-    const r3   = parseFloat(v3);
-    if (isNaN(r45) || isNaN(r130) || isNaN(r3) || !v45 || !v130 || !v3) {
-      toast('⚠️ Remplis les 3 records'); return;
-    }
-    const noteRecord = parseFloat(((r45 + r130 + r3) / 3).toFixed(2));
-    evals[k] = { record45:r45, record130:r130, record3:r3, noteRecord, date:new Date().toISOString().slice(0,10) };
+    const r45  = v45  && !isNaN(parseFloat(v45))  ? parseFloat(v45)  : null;
+    const r130 = v130 && !isNaN(parseFloat(v130)) ? parseFloat(v130) : null;
+    const r3   = v3   && !isNaN(parseFloat(v3))   ? parseFloat(v3)   : null;
+    if (r45===null && r130===null && r3===null) { toast('⚠️ Entre au moins un record'); return; }
+    // Note always /3, missing = 0
+    const noteRecord = parseFloat(((r45||0) + (r130||0) + (r3||0)) / 3).toFixed(2);
+    const nb = [r45,r130,r3].filter(v => v !== null).length;
+    evals[k] = { record45:r45, record130:r130, record3:r3, noteRecord:parseFloat(noteRecord), date:new Date().toISOString().slice(0,10) };
     saveEvals();
-    toast('✅ Records enregistrés !');
+    toast(`✅ ${nb}/3 records enregistrés !`);
     setTimeout(() => { renderEvalStudentList(); goBack(); }, 400);
   };
 }
