@@ -2072,82 +2072,47 @@ function renderDfRecords(studentId) {
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('dfRecordsContent');
 
-  let r45  = saved.r45  || ['','',''];    // 3 courses 45sec
-  let r130 = saved.r130 || ['','',''];    // 3 courses 1'30
-  let r3   = saved.r3   || ['',''];       // 2 courses 3min
+  let r45  = saved.record45  || '';
+  let r130 = saved.record130 || '';
+  let r3   = saved.record3   || '';
 
-  function avg(arr) {
-    const vals = arr.map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
-    if (!vals.length) return null;
-    return vals.reduce((a,b) => a+b, 0) / vals.length;
+  function calcNote() {
+    const v45  = parseFloat(r45);
+    const v130 = parseFloat(r130);
+    const v3   = parseFloat(r3);
+    if (!v45 || !v130 || !v3) return null;
+    return parseFloat(((v45 + v130 + v3) / 3).toFixed(2));
   }
 
   function render() {
-    const a45  = avg(r45);
-    const a130 = avg(r130);
-    const a3   = avg(r3);
-    const noteRecord = (a45 !== null && a130 !== null && a3 !== null)
-      ? parseFloat(((a45 + a130 + a3) / 3).toFixed(2)) : null;
-
+    const note = calcNote();
     content.innerHTML = `
       <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Records</div>
 
-      <!-- 45 sec -->
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-weight:700">⏱️ Record 45 sec <span style="font-size:12px;color:var(--muted);font-weight:400">(3 courses)</span></div>
-          ${a45 !== null ? `<span style="font-size:18px;font-weight:800;color:var(--green)">${a45.toFixed(2)} km/h</span>` : ''}
-        </div>
-        <div style="display:flex;gap:8px">
-          ${[0,1,2].map(i => `
-            <div style="flex:1">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">Course ${i+1}</div>
-              <input type="number" value="${r45[i]}" placeholder="km/h" step="0.1" min="0"
-                oninput="setR45(${i},this.value)"
-                style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 6px;font-size:16px;font-weight:700;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
-            </div>`).join('')}
-        </div>
-      </div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:16px">⏱️ Entrer les records (km/h)</div>
 
-      <!-- 1'30 -->
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-weight:700">⏱️ Record 1'30 <span style="font-size:12px;color:var(--muted);font-weight:400">(3 courses)</span></div>
-          ${a130 !== null ? `<span style="font-size:18px;font-weight:800;color:var(--green)">${a130.toFixed(2)} km/h</span>` : ''}
-        </div>
-        <div style="display:flex;gap:8px">
-          ${[0,1,2].map(i => `
-            <div style="flex:1">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">Course ${i+1}</div>
-              <input type="number" value="${r130[i]}" placeholder="km/h" step="0.1" min="0"
-                oninput="setR130(${i},this.value)"
-                style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 6px;font-size:16px;font-weight:700;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
-            </div>`).join('')}
-        </div>
-      </div>
-
-      <!-- 3 min -->
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-weight:700">⏱️ Record 3 min <span style="font-size:12px;color:var(--muted);font-weight:400">(2 courses)</span></div>
-          ${a3 !== null ? `<span style="font-size:18px;font-weight:800;color:var(--green)">${a3.toFixed(2)} km/h</span>` : ''}
-        </div>
-        <div style="display:flex;gap:8px">
-          ${[0,1].map(i => `
-            <div style="flex:1">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">Course ${i+1}</div>
-              <input type="number" value="${r3[i]}" placeholder="km/h" step="0.1" min="0"
-                oninput="setR3(${i},this.value)"
-                style="width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 6px;font-size:16px;font-weight:700;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
-            </div>`).join('')}
-        </div>
+        ${[
+          {label:'Record 45 sec', key:'r45',  val:r45,  fn:'setRec45'},
+          {label:'Record 1\'30',  key:'r130', val:r130, fn:'setRec130'},
+          {label:'Record 3 min',  key:'r3',   val:r3,   fn:'setRec3'},
+        ].map(item => `
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">${item.label}</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="number" value="${item.val}" placeholder="km/h" step="0.1" min="0"
+                oninput="${item.fn}(this.value)"
+                style="flex:1;background:var(--s2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:14px;font-size:22px;font-weight:800;text-align:center;outline:none;font-family:JetBrains Mono,monospace;border-color:${item.val?'var(--green)':'var(--border2)'}">
+              <span style="font-size:14px;color:var(--muted);font-weight:600">km/h</span>
+            </div>
+          </div>`).join('')}
       </div>
 
       <!-- Note record -->
       <div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:16px;margin-bottom:10px;text-align:center">
         <div style="font-size:13px;color:var(--muted);margin-bottom:4px">NOTE RECORD = (45sec + 1'30 + 3min) / 3</div>
-        ${noteRecord !== null
-          ? `<div style="font-size:36px;font-weight:900;color:var(--green)">${noteRecord}<span style="font-size:18px;color:var(--muted)">/20</span></div>`
+        ${note !== null
+          ? `<div style="font-size:36px;font-weight:900;color:var(--green)">${note}<span style="font-size:18px;color:var(--muted)">/20</span></div>`
           : '<div style="color:var(--muted)">Remplis les 3 records</div>'}
       </div>
 
@@ -2155,22 +2120,18 @@ function renderDfRecords(studentId) {
       <div class="save-bar"><button class="btn btn-primary" onclick="saveDfRecords()">💾 Enregistrer</button></div>`;
   }
 
-  window.setR45  = function(i,v) { r45[i]=v;  render(); };
-  window.setR130 = function(i,v) { r130[i]=v; render(); };
-  window.setR3   = function(i,v) { r3[i]=v;   render(); };
+  window.setRec45  = function(v) { r45=v;  render(); };
+  window.setRec130 = function(v) { r130=v; render(); };
+  window.setRec3   = function(v) { r3=v;   render(); };
 
   window.saveDfRecords = function() {
-    const a45  = avg(r45);
-    const a130 = avg(r130);
-    const a3   = avg(r3);
-    if (!a45 || !a130 || !a3) { toast('⚠️ Remplis les 3 records'); return; }
-    const noteRecord = parseFloat(((a45+a130+a3)/3).toFixed(2));
+    const note = calcNote();
+    if (!note) { toast('⚠️ Remplis les 3 records'); return; }
     evals[key] = {
-      r45, r130, r3,
-      record45: parseFloat(a45.toFixed(2)),
-      record130: parseFloat(a130.toFixed(2)),
-      record3: parseFloat(a3.toFixed(2)),
-      noteRecord,
+      record45:  parseFloat(r45),
+      record130: parseFloat(r130),
+      record3:   parseFloat(r3),
+      noteRecord: note,
       date: new Date().toISOString().slice(0,10)
     };
     saveEvals();
