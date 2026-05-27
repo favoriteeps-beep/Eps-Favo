@@ -2028,41 +2028,31 @@ function getDfKey(type) {
 
 // ── ALLURE RAPIDE ──
 function renderDfAllure(studentId) {
-  const key   = getDfKey('allure');
+  const key   = `${curEvalGroup}_${curApsa}_df-allure_${studentId}`;
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('dfAllureContent');
-
-  let vitesse = saved.vitesse || '';
 
   content.innerHTML = `
     <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Allure rapide</div>
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:10px">
       <div style="font-weight:700;margin-bottom:16px">⚡ Vitesse réalisée</div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <input type="text" inputmode="decimal" id="vitesseInput" value="${vitesse}" placeholder="Ex: 16.5"
-          oninput="updateVitesse(this.value)"
-          style="flex:1;background:var(--s2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:16px;font-size:28px;font-weight:800;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
+        <input type="text" inputmode="decimal" id="vitesseInput" value="${saved.vitesse||''}" placeholder="Ex: 16.5"
+          style="flex:1;background:var(--s2);border:2px solid ${saved.vitesse?'var(--green)':'var(--border2)'};border-radius:10px;color:var(--text);padding:16px;font-size:28px;font-weight:800;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
         <span style="font-size:18px;color:var(--muted);font-weight:600">km/h</span>
       </div>
-      <div id="vitesseNote" style="text-align:center;padding:14px;border-radius:10px;background:var(--s2)">
-        ${vitesse ? `<span style="font-size:32px;font-weight:900;color:var(--green)">${vitesse}</span><span style="font-size:16px;color:var(--muted)">/20</span><div style="font-size:12px;color:var(--muted);margin-top:4px">La vitesse = la note</div>` : '<span style="color:var(--muted)">Entre la vitesse</span>'}
+      <div style="text-align:center;padding:10px;background:var(--s2);border-radius:10px;font-size:13px;color:var(--muted)">
+        La vitesse = la note /20 directement
       </div>
     </div>
     <div style="height:80px"></div>
-    <div class="save-bar"><button class="btn btn-primary" onclick="saveDfAllure()">💾 Enregistrer</button></div>`;
+    <div class="save-bar"><button class="btn btn-primary" onclick="saveDfAllure('${key}')">💾 Enregistrer</button></div>`;
 
-  window.updateVitesse = function(val) {
-    vitesse = val;
-    const el = document.getElementById('vitesseNote');
-    if (el) el.innerHTML = val && parseFloat(val) > 0
-      ? `<span style="font-size:32px;font-weight:900;color:var(--green)">${parseFloat(val).toFixed(1)}</span><span style="font-size:16px;color:var(--muted)">/20</span><div style="font-size:12px;color:var(--muted);margin-top:4px">La vitesse = la note</div>`
-      : '<span style="color:var(--muted)">Entre la vitesse</span>';
-  };
-  window.saveDfAllure = function() {
-    const v = parseFloat(document.getElementById('vitesseInput')?.value || vitesse);
+  window.saveDfAllure = function(k) {
+    const v = parseFloat(document.getElementById('vitesseInput')?.value.replace(',','.'));
     if (!v || v <= 0) { toast('⚠️ Entre une vitesse'); return; }
-    evals[key] = { vitesse: v, note: v, date: new Date().toISOString().slice(0,10) };
+    evals[k] = { vitesse:v, note:v, date:new Date().toISOString().slice(0,10) };
     saveEvals();
     toast('✅ Allure rapide enregistrée !');
     setTimeout(() => { renderEvalStudentList(); goBack(); }, 400);
@@ -2071,83 +2061,52 @@ function renderDfAllure(studentId) {
 
 // ── RECORDS ──
 function renderDfRecords(studentId) {
-  const key   = getDfKey('records');
+  const key   = `${curEvalGroup}_${curApsa}_df-records_${studentId}`;
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('dfRecordsContent');
 
-  let r45  = saved.record45  || '';
-  let r130 = saved.record130 || '';
-  let r3   = saved.record3   || '';
+  content.innerHTML = `
+    <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Records</div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
+      <div style="font-weight:700;margin-bottom:16px">⏱️ Entrer les records (km/h)</div>
+      ${[
+        {label:'Record 45 sec', id:'inp_r45',  val: saved.record45||''},
+        {label:"Record 1'30",   id:'inp_r130', val: saved.record130||''},
+        {label:'Record 3 min',  id:'inp_r3',   val: saved.record3||''},
+      ].map(item => `
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">${item.label}</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="text" inputmode="decimal" id="${item.id}" value="${item.val}" placeholder="Ex: 14.5"
+              style="flex:1;background:var(--s2);border:2px solid ${item.val?'var(--green)':'var(--border2)'};border-radius:10px;color:var(--text);padding:14px;font-size:22px;font-weight:800;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
+            <span style="font-size:14px;color:var(--muted);font-weight:600">km/h</span>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div id="noteRecordDisplay" style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:16px;margin-bottom:10px;text-align:center">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">NOTE RECORD = (45sec + 1'30 + 3min) / 3</div>
+      <div style="color:var(--muted)">Remplis les 3 records puis enregistre</div>
+    </div>
+    <div style="height:80px"></div>
+    <div class="save-bar"><button class="btn btn-primary" onclick="saveDfRecords('${key}')">💾 Enregistrer</button></div>`;
 
-  function calcNote() {
-    const v45  = parseFloat(r45);
-    const v130 = parseFloat(r130);
-    const v3   = parseFloat(r3);
-    if (!v45 || !v130 || !v3) return null;
-    return parseFloat(((v45 + v130 + v3) / 3).toFixed(2));
-  }
-
-  function render() {
-    const note = calcNote();
-    content.innerHTML = `
-      <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Records</div>
-
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:16px">⏱️ Entrer les records (km/h)</div>
-
-        ${[
-          {label:'Record 45 sec', key:'r45',  val:r45,  fn:'setRec45'},
-          {label:'Record 1\'30',  key:'r130', val:r130, fn:'setRec130'},
-          {label:'Record 3 min',  key:'r3',   val:r3,   fn:'setRec3'},
-        ].map(item => `
-          <div style="margin-bottom:14px">
-            <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">${item.label}</div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <input type="text" inputmode="decimal" value="${item.val}" placeholder="Ex: 14.5"
-                oninput="${item.fn}(this.value)"
-                style="flex:1;background:var(--s2);border:2px solid ${item.val?'var(--green)':'var(--border2)'};border-radius:10px;color:var(--text);padding:14px;font-size:22px;font-weight:800;text-align:center;outline:none;font-family:JetBrains Mono,monospace">
-              <span style="font-size:14px;color:var(--muted);font-weight:600">km/h</span>
-            </div>
-          </div>`).join('')}
-      </div>
-
-      <!-- Note record -->
-      <div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:16px;margin-bottom:10px;text-align:center">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:4px">NOTE RECORD = (45sec + 1'30 + 3min) / 3</div>
-        ${note !== null
-          ? `<div style="font-size:36px;font-weight:900;color:var(--green)">${note}<span style="font-size:18px;color:var(--muted)">/20</span></div>`
-          : '<div style="color:var(--muted)">Remplis les 3 records</div>'}
-      </div>
-
-      <div style="height:80px"></div>
-      <div class="save-bar"><button class="btn btn-primary" onclick="saveDfRecords()">💾 Enregistrer</button></div>`;
-  }
-
-  window.setRec45  = function(v) { r45=v;  render(); };
-  window.setRec130 = function(v) { r130=v; render(); };
-  window.setRec3   = function(v) { r3=v;   render(); };
-
-  window.saveDfRecords = function() {
-    const note = calcNote();
-    if (!note) { toast('⚠️ Remplis les 3 records'); return; }
-    evals[key] = {
-      record45:  parseFloat(r45),
-      record130: parseFloat(r130),
-      record3:   parseFloat(r3),
-      noteRecord: note,
-      date: new Date().toISOString().slice(0,10)
-    };
+  window.saveDfRecords = function(k) {
+    const r45  = parseFloat(document.getElementById('inp_r45')?.value.replace(',','.'));
+    const r130 = parseFloat(document.getElementById('inp_r130')?.value.replace(',','.'));
+    const r3   = parseFloat(document.getElementById('inp_r3')?.value.replace(',','.'));
+    if (!r45 || !r130 || !r3) { toast('⚠️ Remplis les 3 records'); return; }
+    const noteRecord = parseFloat(((r45 + r130 + r3) / 3).toFixed(2));
+    evals[k] = { record45:r45, record130:r130, record3:r3, noteRecord, date:new Date().toISOString().slice(0,10) };
     saveEvals();
     toast('✅ Records enregistrés !');
     setTimeout(() => { renderEvalStudentList(); goBack(); }, 400);
   };
-  render();
 }
 
 // ── SUIVI DE CYCLE ──
 function renderDfSuivi(studentId) {
-  const key   = getDfKey('suivi');
+  const key   = `${curEvalGroup}_${curApsa}_df-suivi_${studentId}`;
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('dfSuiviContent');
@@ -2212,7 +2171,7 @@ function renderDfSuivi(studentId) {
 
 // ── ÉVAL FINALE ──
 function renderDfFinale(studentId) {
-  const key   = getDfKey('finale');
+  const key   = `${curEvalGroup}_${curApsa}_df-finale_${studentId}`;
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('dfFinaleContent');
