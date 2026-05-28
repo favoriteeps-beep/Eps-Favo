@@ -1574,27 +1574,31 @@ function renderAppel() {
   });
 }
 
-function setStatus(i,status) {
+function setStatus(i, status) {
   const s=groups[curGroup].students[i];
   if (!pendingAtt[s.id]) pendingAtt[s.id]={};
-  pendingAtt[s.id].status=status;
+  // Toggle off if already selected
+  const current = pendingAtt[s.id].status;
+  const newStatus = current === status ? '' : status;
+  pendingAtt[s.id].status = newStatus;
   const row=document.getElementById(`att_${i}`);
-  row.className=`att-row ${status}`;
+  row.className=`att-row ${newStatus}`;
   row.querySelectorAll('.s-btn').forEach(b=>b.className='s-btn');
   const btns=row.querySelectorAll('.s-btn');
-  if (status==='present')   btns[0].classList.add('on-p');
-  if (status==='absent')    btns[1].classList.add('on-a');
-  if (status==='dispensed') btns[2].classList.add('on-d');
-  document.getElementById(`inv_${i}`).classList.toggle('show',status==='present');
-  document.getElementById(`disp_${i}`).classList.toggle('show',status==='dispensed');
+  if (newStatus==='present')   btns[0].classList.add('on-p');
+  if (newStatus==='absent')    btns[1].classList.add('on-a');
+  if (newStatus==='dispensed') btns[2].classList.add('on-d');
+  document.getElementById(`inv_${i}`).classList.toggle('show', newStatus==='present');
+  document.getElementById(`disp_${i}`).classList.toggle('show', newStatus==='dispensed');
 }
 function setInvest(i,val) {
   const s=groups[curGroup].students[i];
   if (!pendingAtt[s.id]) pendingAtt[s.id]={};
-  pendingAtt[s.id].invest=val;
+  // Toggle off if already selected
+  pendingAtt[s.id].invest = pendingAtt[s.id].invest === val ? null : val;
   document.querySelectorAll(`#inv_${i} .i-btn`).forEach(b=>b.classList.remove('on'));
   const map={super:0,moyen:1,passable:2};
-  document.querySelectorAll(`#inv_${i} .i-btn`)[map[val]]?.classList.add('on');
+  if (pendingAtt[s.id].invest) document.querySelectorAll(`#inv_${i} .i-btn`)[map[pendingAtt[s.id].invest]]?.classList.add('on');
 }
 function setDispDate(i,val) {
   const s=groups[curGroup].students[i];
