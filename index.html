@@ -1386,7 +1386,6 @@ function render20m(studentId) {
 }
 
 // ══════════════════════
-
 // ══════════════════════
 //  EVAL AISANCE
 // ══════════════════════
@@ -1397,74 +1396,77 @@ function renderAisance(studentId) {
   const content = document.getElementById('evalAisanceContent');
 
   const NIVEAUX = [
-    { n:1, note:12, coulee:'Coulée ventre 3m min',               cerceaux:'1 cerceau en apnée' },
-    { n:2, note:14, coulee:'Coulée ventre 5m min',               cerceaux:'2 cerceaux en apnée' },
-    { n:3, note:16, coulee:'Coulée dos 5m min',                  cerceaux:'3 cerceaux en apnée' },
-    { n:4, note:18, coulee:'Coulée ventre + demi-tour dos 5m',   cerceaux:'4 cerceaux en apnée' },
-    { n:5, note:20, coulee:'Coulée ventre + tour complet 5m',    cerceaux:'5 cerceaux en apnée' },
+    { n:1, note:12, coulee:'Coulée ventre · 3m min',             cerceaux:'Récupérer 1 cerceau en apnée' },
+    { n:2, note:14, coulee:'Coulée ventre · 5m min',             cerceaux:'Récupérer 2 cerceaux en apnée' },
+    { n:3, note:16, coulee:'Coulée sur le dos · 5m min',         cerceaux:'Récupérer 3 cerceaux en apnée' },
+    { n:4, note:18, coulee:'Coulée ventre + demi-tour dos · 5m', cerceaux:'Récupérer 4 cerceaux en apnée' },
+    { n:5, note:20, coulee:'Coulée ventre + tour complet · 5m',  cerceaux:'Récupérer 5 cerceaux en apnée' },
   ];
 
+  let type   = saved.type   || null;
   let niveau = saved.niveau || null;
 
   function render() {
+    const rows = NIVEAUX.map(nv => {
+      const isCoulee   = type==='coulee'   && niveau===nv.n;
+      const isCerceaux = type==='cerceaux' && niveau===nv.n;
+      return `
+        <div onclick="selAisC('coulee',${nv.n})" style="
+          background:${isCoulee?'rgba(88,166,255,.2)':'var(--s1)'};
+          border:2px solid ${isCoulee?'var(--accent)':'var(--border)'};
+          border-radius:10px;padding:10px 10px;margin-bottom:6px;cursor:pointer;transition:all .18s">
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-weight:700;font-size:13px;color:${isCoulee?'var(--accent)':'var(--text)'}">Niv. ${nv.n}</span>
+            <span style="font-weight:800;font-size:13px;color:var(--green)">${nv.note}/20</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${nv.coulee}</div>
+        </div>`;
+    }).join('');
+
+    const rowsC = NIVEAUX.map(nv => {
+      const isCerceaux = type==='cerceaux' && niveau===nv.n;
+      return `
+        <div onclick="selAisC('cerceaux',${nv.n})" style="
+          background:${isCerceaux?'rgba(63,185,80,.2)':'var(--s1)'};
+          border:2px solid ${isCerceaux?'var(--green)':'var(--border)'};
+          border-radius:10px;padding:10px 10px;margin-bottom:6px;cursor:pointer;transition:all .18s">
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-weight:700;font-size:13px;color:${isCerceaux?'var(--green)':'var(--text)'}">Niv. ${nv.n}</span>
+            <span style="font-weight:800;font-size:13px;color:var(--green)">${nv.note}/20</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${nv.cerceaux}</div>
+        </div>`;
+    }).join('');
+
     content.innerHTML = `
       <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Aisance aquatique</div>
-
-      <!-- Header -->
-      <div style="display:grid;grid-template-columns:1fr 56px 1fr;gap:4px;margin-bottom:6px;text-align:center">
-        <div style="font-size:12px;font-weight:700;color:var(--muted)">🤽 Coulée</div>
-        <div></div>
-        <div style="font-size:12px;font-weight:700;color:var(--muted)">🤿 Cerceaux</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:8px;color:${type==='coulee'?'var(--accent)':'var(--text)'}">🤽 Coulée</div>
+          ${rows}
+        </div>
+        <div>
+          <div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:8px;color:${type==='cerceaux'?'var(--green)':'var(--text)'}">🤿 Cerceaux</div>
+          ${rowsC}
+        </div>
       </div>
-
-      ${NIVEAUX.map(nv => {
-        const selected = niveau === nv.n;
-        return `
-        <div style="display:grid;grid-template-columns:1fr 56px 1fr;gap:4px;margin-bottom:6px;align-items:center">
-          <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px 0 0 10px;
-            padding:10px 8px;text-align:right;font-size:11px;color:var(--muted);min-height:52px;
-            display:flex;align-items:center;justify-content:flex-end">
-            ${nv.coulee}
-          </div>
-          <div onclick="selNiveau(${nv.n})" style="
-            background:${selected?'var(--accent)':'var(--s2)'};
-            border:2px solid ${selected?'var(--accent)':'var(--border)'};
-            border-radius:8px;cursor:pointer;text-align:center;
-            font-weight:900;font-size:17px;color:${selected?'#0d1117':'var(--text)'};
-            min-height:52px;display:flex;align-items:center;justify-content:center;
-            flex-direction:column;transition:all .18s">
-            <div>${nv.n}</div>
-            <div style="font-size:10px;font-weight:700;opacity:.85">${nv.note}/20</div>
-          </div>
-          <div style="background:var(--s1);border:1px solid var(--border);border-radius:0 10px 10px 0;
-            padding:10px 8px;text-align:left;font-size:11px;color:var(--muted);min-height:52px;
-            display:flex;align-items:center">
-            ${nv.cerceaux}
-          </div>
-        </div>`;
-      }).join('')}
-
-      ${niveau ? `
-        <div style="background:rgba(88,166,255,.1);border:1px solid var(--accent);border-radius:12px;
-          padding:14px;margin-top:10px;text-align:center">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Niveau ${niveau}</div>
-          <div style="font-size:40px;font-weight:900;color:var(--accent)">
-            ${NIVEAUX.find(x=>x.n===niveau)?.note}<span style="font-size:16px;color:var(--muted)">/20</span>
-          </div>
-        </div>` : ''}
-
+      ${type&&niveau?`
+        <div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${type==='coulee'?'🤽 Coulée':'🤿 Cerceaux'} · Niveau ${niveau}</div>
+          <div style="font-size:40px;font-weight:900;color:var(--green)">${NIVEAUX.find(x=>x.n===niveau)?.note}<span style="font-size:16px;color:var(--muted)">/20</span></div>
+        </div>`:''}
       <div style="height:80px"></div>
       <div class="save-bar"><button class="btn btn-primary" onclick="saveAisance()">💾 Enregistrer</button></div>`;
   }
 
-  window.selNiveau = function(n) {
-    niveau = niveau === n ? null : n;
+  window.selAisC = function(t,n) {
+    if (type===t&&niveau===n) { type=null; niveau=null; } else { type=t; niveau=n; }
     render();
   };
   window.saveAisance = function() {
-    if (!niveau) { toast('⚠️ Choisis un niveau'); return; }
+    if (!type||!niveau) { toast('⚠️ Choisis un niveau'); return; }
     const note = NIVEAUX.find(x=>x.n===niveau)?.note;
-    evals[key] = { niveau, note, date:new Date().toISOString().slice(0,10) };
+    evals[key] = { type, niveau, note, date:new Date().toISOString().slice(0,10) };
     saveEvals();
     toast('✅ Aisance enregistrée !');
     setTimeout(()=>{ renderEvalStudentList(); goBack(); },400);
