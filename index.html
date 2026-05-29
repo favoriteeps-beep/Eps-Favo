@@ -1406,37 +1406,35 @@ function renderAisance(studentId) {
   let type   = saved.type   || null;
   let niveau = saved.niveau || null;
 
-  function render() {
-    const rows = NIVEAUX.map(nv => {
-      const isCoulee   = type==='coulee'   && niveau===nv.n;
-      const isCerceaux = type==='cerceaux' && niveau===nv.n;
-      return `
-        <div onclick="selAisC('coulee',${nv.n})" style="
-          background:${isCoulee?'rgba(88,166,255,.2)':'var(--s1)'};
-          border:2px solid ${isCoulee?'var(--accent)':'var(--border)'};
-          border-radius:10px;padding:10px 10px;margin-bottom:6px;cursor:pointer;transition:all .18s">
-          <div style="display:flex;justify-content:space-between">
-            <span style="font-weight:700;font-size:13px;color:${isCoulee?'var(--accent)':'var(--text)'}">Niv. ${nv.n}</span>
-            <span style="font-weight:800;font-size:13px;color:var(--green)">${nv.note}/20</span>
-          </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${nv.coulee}</div>
-        </div>`;
-    }).join('');
+  const COLORS = [
+    { bg:'rgba(248,81,73,.18)',  border:'rgba(248,81,73,.6)',  text:'#f85149' },
+    { bg:'rgba(227,137,75,.18)', border:'rgba(227,137,75,.6)', text:'#e3894b' },
+    { bg:'rgba(210,153,34,.18)', border:'rgba(210,153,34,.6)', text:'#d29922' },
+    { bg:'rgba(88,166,255,.18)', border:'rgba(88,166,255,.6)', text:'#58a6ff' },
+    { bg:'rgba(63,185,80,.18)',  border:'rgba(63,185,80,.6)',  text:'#3fb950' },
+  ];
 
-    const rowsC = NIVEAUX.map(nv => {
-      const isCerceaux = type==='cerceaux' && niveau===nv.n;
-      return `
-        <div onclick="selAisC('cerceaux',${nv.n})" style="
-          background:${isCerceaux?'rgba(63,185,80,.2)':'var(--s1)'};
-          border:2px solid ${isCerceaux?'var(--green)':'var(--border)'};
-          border-radius:10px;padding:10px 10px;margin-bottom:6px;cursor:pointer;transition:all .18s">
-          <div style="display:flex;justify-content:space-between">
-            <span style="font-weight:700;font-size:13px;color:${isCerceaux?'var(--green)':'var(--text)'}">Niv. ${nv.n}</span>
-            <span style="font-weight:800;font-size:13px;color:var(--green)">${nv.note}/20</span>
+  function render() {
+    const makeRow = (t, nv, idx) => {
+      const sel = type===t && niveau===nv.n;
+      const c   = COLORS[idx];
+      const desc = t==='coulee' ? nv.coulee : nv.cerceaux;
+      return `<div onclick="selAisC('${t}',${nv.n})" style="
+          background:${sel?c.bg:'var(--s1)'};
+          border:2px solid ${sel?c.border:'var(--border)'};
+          border-left:4px solid ${c.border};
+          border-radius:10px;padding:10px;margin-bottom:6px;cursor:pointer;transition:all .18s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:700;font-size:13px;color:${sel?c.text:'var(--text)'}">Niv. ${nv.n}</span>
+            <span style="font-weight:800;font-size:14px;color:${c.text}">${nv.note}/20</span>
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${nv.cerceaux}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${desc}</div>
         </div>`;
-    }).join('');
+    };
+
+    const rows  = NIVEAUX.map((nv,i) => makeRow('coulee',   nv, i)).join('');
+    const rowsC = NIVEAUX.map((nv,i) => makeRow('cerceaux', nv, i)).join('');
+    const selColor = type&&niveau ? COLORS[NIVEAUX.findIndex(x=>x.n===niveau)] : null;
 
     content.innerHTML = `
       <div class="slabel" style="margin-top:0">${stu?.nom} ${stu?.prenom} · Aisance aquatique</div>
@@ -1450,14 +1448,15 @@ function renderAisance(studentId) {
           ${rowsC}
         </div>
       </div>
-      ${type&&niveau?`
-        <div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:14px;text-align:center">
+      ${selColor?`
+        <div style="background:${selColor.bg};border:2px solid ${selColor.border};border-radius:12px;padding:14px;text-align:center">
           <div style="font-size:13px;color:var(--muted);margin-bottom:4px">${type==='coulee'?'🤽 Coulée':'🤿 Cerceaux'} · Niveau ${niveau}</div>
-          <div style="font-size:40px;font-weight:900;color:var(--green)">${NIVEAUX.find(x=>x.n===niveau)?.note}<span style="font-size:16px;color:var(--muted)">/20</span></div>
+          <div style="font-size:40px;font-weight:900;color:${selColor.text}">${NIVEAUX.find(x=>x.n===niveau)?.note}<span style="font-size:16px;color:var(--muted)">/20</span></div>
         </div>`:''}
       <div style="height:80px"></div>
       <div class="save-bar"><button class="btn btn-primary" onclick="saveAisance()">💾 Enregistrer</button></div>`;
   }
+
 
   window.selAisC = function(t,n) {
     if (type===t&&niveau===n) { type=null; niveau=null; } else { type=t; niveau=n; }
