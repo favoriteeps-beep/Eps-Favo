@@ -693,49 +693,61 @@ function renderApsaDetail() {
   const list = document.getElementById('apsaGroupList');
   list.innerHTML='';
 
-  // Évals disponibles
-  const elbl=document.createElement('div'); elbl.className='slabel'; elbl.textContent='Évaluations';
-  list.appendChild(elbl);
-  apsa.evals.forEach(ev=>{
-    const card=document.createElement('div'); card.className='card';
-    card.innerHTML=`<div class="card-row">
-      <div style="font-size:24px;margin-right:10px">${ev.icon}</div>
-      <div style="flex:1"><div class="card-title">${ev.name}</div><div class="card-meta">${ev.desc}</div></div>
-      <div class="card-chevron">›</div></div>`;
-    card.onclick=()=>{ curEvalType=ev.id; renderEvalGroupPicker(ev); };
-    list.appendChild(card);
-  });
-}
-
-function renderEvalGroupPicker(ev) {
-  const list = document.getElementById('apsaGroupList');
-  list.innerHTML='';
-  const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent=`${ev.name} · Choisir le groupe`;
-  list.appendChild(lbl);
+  // Si pas de groupes
   if (!groups.length) {
-    list.innerHTML+='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Crée d\'abord un groupe dans l\'onglet Présence.</div></div>';
+    list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Crée d\'abord un groupe dans l\'onglet Présence.</div></div>';
     return;
   }
+
+  // Choisir le groupe
+  const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent='Choisir le groupe';
+  list.appendChild(lbl);
   groups.forEach((g,i)=>{
     const card=document.createElement('div'); card.className='card';
     card.innerHTML=`<div class="card-row"><div style="flex:1">
       <div class="card-title">${g.name}</div>
       <div class="card-meta">${g.students?.length||0} élèves</div>
     </div><div class="card-chevron">›</div></div>`;
-    card.onclick=()=>{ 
-      curEvalGroup=i; 
-      if (curEvalType === 'cirque-eval') {
-        renderCirqueGroupes();
-        nav('s-cirque-groupes');
-      } else {
-        renderEvalStudentList(); 
-        nav('s-apsa-group'); 
-      }
+    card.onclick=()=>{ curEvalGroup=i; renderApsaEvals(apsa); };
+    list.appendChild(card);
+  });
+}
+
+function renderApsaEvals(apsa) {
+  const g = groups[curEvalGroup];
+  const list = document.getElementById('apsaGroupList');
+  list.innerHTML='';
+
+  const lbl=document.createElement('div'); lbl.className='slabel';
+  lbl.textContent=`${g.name} · Évaluations`;
+  list.appendChild(lbl);
+
+  apsa.evals.forEach(ev=>{
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<div class="card-row">
+      <div style="font-size:24px;margin-right:10px">${ev.icon}</div>
+      <div style="flex:1"><div class="card-title">${ev.name}</div><div class="card-meta">${ev.desc}</div></div>
+      <div class="card-chevron">›</div></div>`;
+    card.onclick=()=>{
+      curEvalType=ev.id;
+      if (curEvalType==='cirque-eval') { renderCirqueGroupes(); nav('s-cirque-groupes'); }
+      else { renderEvalStudentList(); nav('s-apsa-group'); }
     };
     list.appendChild(card);
   });
-  const back=document.createElement('button'); back.className='btn btn-ghost'; back.style.marginTop='8px';
-  back.textContent='← Retour aux évaluations'; back.onclick=renderApsaDetail;
+
+  // Export complet si plusieurs évals
+  if (apsa.evals.length > 1) {
+    const expBtn=document.createElement('button');
+    expBtn.className='btn btn-primary';
+    expBtn.style.marginTop='12px';
+    expBtn.innerHTML=`📊 Exporter ${apsa.name} complet — Excel`;
+    expBtn.onclick=()=>exportApsaComplet(apsa);
+    list.appendChild(expBtn);
+  }
+
+  const back=document.createElement('button'); back.className='btn btn-ghost';
+  back.textContent='← Retour aux groupes'; back.onclick=renderApsaDetail;
   list.appendChild(back);
 }
 
@@ -961,7 +973,7 @@ function renderCirqueGroupes() {
         <div style="flex:1;min-width:0">
           <div class="card-row" style="gap:8px;margin-bottom:4px">
             <div class="card-title">Groupe ${grp.id}</div>
-            ${evalDone ? `<span class="pill pill-green">✅ Évalué · ${evalDone.noteFinale}/20</span>` : '<span class="pill pill-yellow">⏳ Non évalué</span>'}
+            ${evalDone ? `<span class="pill pill-green">✅ Évalué · ${evalDone.collectif}/16</span>` : '<span class="pill pill-yellow">⏳ Non évalué</span>'}
           </div>
           <div class="card-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${members}</div>
         </div>
@@ -1139,12 +1151,20 @@ function renderCirqueEval(grp) {
             <span style="font-weight:800;color:var(--green);font-size:16px">${total}/4 → <span style="color:var(--accent)">${(collectif+total).toFixed(1)}/20</span></span>
           </div>
           <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Regard / Gestuelle /2</div>
-          <div style="display:flex;gap:6px;margin-bottom:10px">
-            ${[0,1,2].map(v=>`<button onclick="setInd('${s.id}','regard',${v})" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${ind.regard===v?'var(--green)':'var(--border)'};background:${ind.regard===v?'rgba(63,185,80,.2)':'var(--s2)'};color:${ind.regard===v?'var(--green)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+          <div style="display:flex;gap:4px;margin-bottom:10px">
+            ${[0,0.5,1,1.5,2].map((v,i)=>{
+              const c=[{b:'rgba(248,81,73,.6)',bg:'rgba(248,81,73,.2)',t:'#f85149'},{b:'rgba(227,137,75,.6)',bg:'rgba(227,137,75,.2)',t:'#e3894b'},{b:'rgba(210,153,34,.6)',bg:'rgba(210,153,34,.2)',t:'#d29922'},{b:'rgba(88,166,255,.6)',bg:'rgba(88,166,255,.2)',t:'#58a6ff'},{b:'rgba(63,185,80,.6)',bg:'rgba(63,185,80,.2)',t:'#3fb950'}][i];
+              const sel=ind.regard===v;
+              return `<button onclick="setInd('${s.id}','regard',${v})" style="flex:1;padding:8px 2px;border-radius:8px;border:2px solid ${sel?c.b:'var(--border)'};background:${sel?c.bg:'var(--s2)'};color:${sel?c.t:'var(--muted)'};font-weight:700;cursor:pointer;font-size:13px">${v}</button>`;
+            }).join('')}
           </div>
           <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px">Rôle / Engagement /2</div>
-          <div style="display:flex;gap:6px">
-            ${[0,1,2].map(v=>`<button onclick="setInd('${s.id}','role',${v})" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${ind.role===v?'var(--green)':'var(--border)'};background:${ind.role===v?'rgba(63,185,80,.2)':'var(--s2)'};color:${ind.role===v?'var(--green)':'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`).join('')}
+          <div style="display:flex;gap:4px">
+            ${[0,0.5,1,1.5,2].map((v,i)=>{
+              const c=[{b:'rgba(248,81,73,.6)',bg:'rgba(248,81,73,.2)',t:'#f85149'},{b:'rgba(227,137,75,.6)',bg:'rgba(227,137,75,.2)',t:'#e3894b'},{b:'rgba(210,153,34,.6)',bg:'rgba(210,153,34,.2)',t:'#d29922'},{b:'rgba(88,166,255,.6)',bg:'rgba(88,166,255,.2)',t:'#58a6ff'},{b:'rgba(63,185,80,.6)',bg:'rgba(63,185,80,.2)',t:'#3fb950'}][i];
+              const sel=ind.role===v;
+              return `<button onclick="setInd('${s.id}','role',${v})" style="flex:1;padding:8px 2px;border-radius:8px;border:2px solid ${sel?c.b:'var(--border)'};background:${sel?c.bg:'var(--s2)'};color:${sel?c.t:'var(--muted)'};font-weight:700;cursor:pointer;font-size:13px">${v}</button>`;
+            }).join('')}
           </div>
         </div>`;
       }).join('')}`;
