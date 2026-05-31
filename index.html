@@ -776,6 +776,7 @@ function renderApsaEvals(apsa) {
     card.onclick=()=>{
       curEvalType=ev.id;
       if (curEvalType==='cirque-eval') { renderCirqueGroupes(); nav('s-cirque-groupes'); }
+      else if (curEvalType==='danse-eval') { renderDanseGroupes(); nav('s-danse-groupes'); }
       else { renderEvalStudentList(); nav('s-apsa-group'); }
     };
     list.appendChild(card);
