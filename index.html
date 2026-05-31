@@ -483,17 +483,26 @@ const LEVEL_COLORS = [
 ];
 
 const SN_STEPS = [
-  { num:1,  icon:'🌊', title:'Entrer dans l\'eau', desc:'Entrer en chute arrière depuis le bord du bassin.' },
-  { num:2,  icon:'🏊', title:'Se déplacer 3,50 m', desc:'Se déplacer sur une distance de 3,50 m sur le ventre.' },
-  { num:3,  icon:'🤿', title:'Franchir un obstacle', desc:'Franchir un obstacle de 1,50 m en immersion complète.' },
-  { num:4,  icon:'🏊', title:'Se déplacer 15 m', desc:'Se déplacer sur le ventre sur une distance de 15 m.' },
-  { num:5,  icon:'🧍', title:'Surplace vertical 15 s', desc:'Au signal sonore, réaliser un surplace vertical pendant 15 s, puis parcourir les 5 m restants.' },
-  { num:6,  icon:'↩️', title:'Faire demi-tour', desc:'Faire demi-tour sans toucher ni le mur, ni le fond.' },
-  { num:7,  icon:'🔄', title:'Se déplacer sur le dos 20 m', desc:'Se déplacer sur le dos sur une distance de 20 m.' },
-  { num:8,  icon:'🧍', title:'Surplace sur le dos 15 s', desc:'Au signal sonore, réaliser un surplace sur le dos pendant 15 s.' },
-  { num:9,  icon:'🤿', title:'Se retourner + franchir obstacle', desc:'Se retourner sur le ventre pour franchir à nouveau l\'obstacle en immersion complète.' },
-  { num:10, icon:'🏊', title:'Revenir au point de départ', desc:'Se déplacer sur le ventre pour revenir au point de départ.' },
-  { num:11, icon:'🪜', title:'S\'ancrer en sécurité', desc:'S\'ancrer de manière sécurisée sur un élément fixe et stable en attendant les secours.' },
+  {
+    num: 1, icon: '🌊',
+    title: 'Entrée + déplacement + obstacle',
+    desc: 'Entrer en chute arrière → se déplacer sur 3,50m → franchir l\'obstacle de 1,50m en immersion complète.'
+  },
+  {
+    num: 2, icon: '🏊',
+    title: 'Flottaison + demi-tour',
+    desc: 'Se déplacer 15m sur le ventre → surplace vertical 15s → parcourir les 5m restants → faire demi-tour sans toucher le mur ni le fond.'
+  },
+  {
+    num: 3, icon: '🔄',
+    title: 'Retour sur le dos + surplace',
+    desc: 'Se déplacer 20m sur le dos → réaliser un surplace sur le dos pendant 15s.'
+  },
+  {
+    num: 4, icon: '🪜',
+    title: 'Retour + ancrage',
+    desc: 'Se retourner sur le ventre → franchir à nouveau l\'obstacle en immersion → revenir au point de départ → s\'ancrer sur un élément fixe en attendant les secours.'
+  },
 ];
 
 // 20m niveaux : { niveau, note, desc }
@@ -791,8 +800,8 @@ function renderEvalStudentList() {
     let statusIcon='⬜', statusText='Non évalué', statusColor='var(--muted)';
     if (res) {
       if (curEvalType==='savoir-nager') {
-        if (res.validated) { statusIcon='✅'; statusText='Validé (11/11)'; statusColor='var(--green)'; }
-        else { statusIcon='❌'; statusText=`Échec étape ${res.failStep}/11`; statusColor='var(--red)'; }
+        if (res.validated) { statusIcon='✅'; statusText='Validé (4/4)'; statusColor='var(--green)'; }
+        else { statusIcon='❌'; statusText=`Échec étape ${res.failStep}/4`; statusColor='var(--red)'; }
       } else if (curEvalType==='20m') {
         statusIcon='🏊'; statusText=`Niveau ${res.niveau}${res.note?' · '+res.note+'/20':''}`;
         statusColor='var(--accent)';
@@ -1328,7 +1337,7 @@ function renderSNResult() {
         <div class="sn-result-icon">🏅</div>
         <div class="sn-result-title">Test validé !</div>
         <div class="sn-result-sub">${stu?.nom} ${stu?.prenom}</div>
-        <div class="sn-result-badge" style="background:rgba(63,185,80,.2);color:var(--green)">✅ 11 / 11 étapes réussies</div>
+        <div class="sn-result-badge" style="background:rgba(63,185,80,.2);color:var(--green)">✅ 4 / 4 étapes réussies</div>
         <button class="btn btn-ghost" onclick="goBack()">← Retour à la liste</button>
       </div>`;
   } else {
@@ -1337,7 +1346,7 @@ function renderSNResult() {
         <div class="sn-result-icon">❌</div>
         <div class="sn-result-title">Test non validé</div>
         <div class="sn-result-sub">${stu?.nom} ${stu?.prenom}</div>
-        <div class="sn-result-badge" style="background:rgba(248,81,73,.2);color:var(--red)">Arrêt à l'étape ${res?.failStep} / 11<br><small>${res?.failStepName}</small></div>
+        <div class="sn-result-badge" style="background:rgba(248,81,73,.2);color:var(--red)">Arrêt à l'étape ${res?.failStep} / 4<br><small>${res?.failStepName}</small></div>
         ${res?.note ? `<div style="background:var(--s2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;text-align:left;border-left:2px solid var(--red)"><span style="color:var(--muted);font-size:11px">ANNOTATION</span><br>${res.note}</div>` : ''}
         <button class="btn btn-ghost" onclick="goBack()">← Retour à la liste</button>
       </div>`;
