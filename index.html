@@ -328,7 +328,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 <!-- ══ S-APSA-DETAIL : liste évals d'une APSA ══ -->
 <div class="screen" id="s-apsa-detail">
-  <div class="slabel">Choisir le groupe</div>
   <div id="apsaGroupList"></div>
 </div>
 
@@ -340,6 +339,20 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 </div>
 
 <!-- ══ S-CIRQUE-GROUPES : gestion groupes cirque ══ -->
+<div class="screen" id="s-danse-groupes">
+  <div id="danseGroupesContent"></div>
+</div>
+<div class="screen" id="s-danse-assign">
+  <div id="danseAssignContent"></div>
+  <div style="height:80px"></div>
+  <div class="save-bar"><button class="btn btn-primary" onclick="saveDanseGroups()">💾 Enregistrer les groupes</button></div>
+</div>
+<div class="screen" id="s-danse-eval">
+  <div id="danseEvalContent"></div>
+  <div style="height:80px"></div>
+  <div class="save-bar"><button class="btn btn-primary" onclick="saveDanseEval()">💾 Enregistrer l'évaluation</button></div>
+</div>
+
 <div class="screen" id="s-cirque-groupes">
   <div id="cirqueGroupesContent"></div>
 </div>
@@ -416,13 +429,16 @@ let snSteps      = [];
 let curEvalType  = null;
 
 // Cirque specific
-let cirqueGroups    = DB.get('eps_cirque_groups') || {}; // { groupIdx: { groupes: [{id,name,studentIds}] } }
-let curCirqueGroup  = null; // which circus group (1,2,3...) is being evaluated
-let pendingCirqueEval = {}; // collective + individual scores being entered
+let cirqueGroups    = DB.get('eps_cirque_groups') || {};
+let danseGroups     = DB.get('eps_danse_groups')  || {};
+let curCirqueGroup  = null;
+let curDanseGroup   = null;
+let pendingCirqueEval = {};
 
-function save()           { DB.set('eps_groups', groups); }
-function saveEvals()      { DB.set('eps_evals', evals); }
-function saveCirqueData() { DB.set('eps_cirque_groups', cirqueGroups); }
+function save()          { DB.set('eps_groups', groups); }
+function saveEvals()     { DB.set('eps_evals', evals); }
+function saveCirqueData(){ DB.set('eps_cirque_groups', cirqueGroups); }
+function saveDanseData() { DB.set('eps_danse_groups',  danseGroups); }
 
 // ══════════════════════
 //  APSA DEFINITIONS
@@ -457,6 +473,15 @@ const APSAS = [
       { id: 'escalade-cycle',  name: 'Suivi de cycle',    icon: '📋', desc: 'Savoirs faire + Traversée + Bonus' },
       { id: 'escalade-finale', name: 'Évaluation finale', icon: '🏆', desc: 'Score → note /20' },
       { id: 'escalade-bloc',   name: 'Bloc',              icon: '🪨', desc: '9 murs · niveau 0 à 5 → note /20' },
+    ]
+  },
+  {
+    id: 'danse',
+    icon: '💃',
+    name: 'Danse 1ère/Term',
+    color: '#ff6584',
+    evals: [
+      { id: 'danse-eval', name: 'Évaluation danse', icon: '🎭', desc: 'Note collective /20 + individuelle /20' },
     ]
   },
   {
@@ -588,6 +613,7 @@ function goBack() {
   if (prev==='s-apsa-detail')  { renderApsaDetail(); }
   if (prev==='s-apsa-group')   { renderEvalStudentList(); }
   if (prev==='s-cirque-groupes') { renderCirqueGroupes(); }
+  if (prev==='s-danse-groupes')  { renderDanseGroupes(); }
 }
 function header(id) {
   const grp  = curGroup!==null ? groups[curGroup] : null;
@@ -609,6 +635,9 @@ function header(id) {
     's-cirque-groupes':    ['Cirque 2nde', evalGrp?.name||''],
     's-cirque-assign':     ['Groupes cirque', evalGrp?.name||''],
     's-cirque-eval':       [`Groupe ${curCirqueGroup||''}`, evalGrp?.name||''],
+    's-danse-groupes':     ['Danse 1ère/Term', evalGrp?.name||''],
+    's-danse-assign':      ['Groupes danse', evalGrp?.name||''],
+    's-danse-eval':        [`Groupe ${curDanseGroup||''}`, evalGrp?.name||''],
     's-escalade-cycle':    [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Suivi de cycle', evalGrp?.name||''],
     's-escalade-finale':   [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Éval finale', evalGrp?.name||''],
     's-escalade-bloc':     [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Bloc', evalGrp?.name||''],
@@ -720,7 +749,6 @@ function renderApsaDetail() {
   const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent='Choisir le groupe';
   list.appendChild(lbl);
   groups.forEach((g,i)=>{
-    const card=document.createElement('div'); card.className='card';
     card.innerHTML=`<div class="card-row"><div style="flex:1">
       <div class="card-title">${g.name}</div>
       <div class="card-meta">${g.students?.length||0} élèves</div>
@@ -786,6 +814,16 @@ function renderEvalStudentList() {
     if (idx !== -1) stack[idx] = 's-cirque-groupes';
     else stack.push('s-cirque-groupes');
     header('s-cirque-groupes');
+    return;
+  }
+  if (curEvalType === 'danse-eval') {
+    renderDanseGroupes();
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('s-danse-groupes').classList.add('active');
+    const idx2 = stack.lastIndexOf('s-apsa-group');
+    if (idx2 !== -1) stack[idx2] = 's-danse-groupes';
+    else stack.push('s-danse-groupes');
+    header('s-danse-groupes');
     return;
   }
   const list = document.getElementById('evalStudentList');
@@ -2402,13 +2440,232 @@ function renderDfFinale(studentId) {
 }
 
 // ══════════════════════
+//  DANSE
+// ══════════════════════
+const DANSE_COLLECTIVE = [
+  { id:'energie',   name:'Énergie / Émotions / Sensibilité',              max:5 },
+  { id:'unisson',   name:'Unisson / Canon / Lâcher / Rattraper / Contrastes', max:5 },
+  { id:'espace',    name:'Utilisation de l\'espace',                      max:5 },
+  { id:'relations', name:'Relations les uns avec les autres',              max:5 },
+];
+const DANSE_INDIVIDUEL = [
+  { id:'regard',    name:'Interprétation / Regard',         max:5 },
+  { id:'presence',  name:'Présence scénique & posture',     max:5 },
+  { id:'rythme',    name:'Rythme & musicalité',             max:5 },
+  { id:'precision', name:'Précision technique individuelle', max:5 },
+];
+
+function getDanseKey() { return `danse_${curEvalGroup}`; }
+
+function renderDanseGroupes() {
+  const g   = groups[curEvalGroup];
+  const key = getDanseKey();
+  if (!danseGroups[key]) danseGroups[key] = { groupes:[] };
+  const data = danseGroups[key];
+  const content = document.getElementById('danseGroupesContent');
+  content.innerHTML='';
+
+  const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent=`${g.name} · Groupes danse`;
+  content.appendChild(lbl);
+
+  const assignBtn=document.createElement('button'); assignBtn.className='btn btn-primary';
+  assignBtn.innerHTML='👥 Assigner les élèves aux groupes';
+  assignBtn.onclick=()=>{ renderDanseAssign(); nav('s-danse-assign'); };
+  content.appendChild(assignBtn);
+
+  if (!data.groupes.length) {
+    const empty=document.createElement('div'); empty.className='empty';
+    empty.innerHTML='<div class="empty-icon">💃</div><div class="empty-text">Aucun groupe défini.<br>Assigne d\'abord les élèves.</div>';
+    content.appendChild(empty); return;
+  }
+
+  const lbl2=document.createElement('div'); lbl2.className='slabel'; lbl2.textContent=`${data.groupes.length} groupes · Évaluations`;
+  content.appendChild(lbl2);
+
+  data.groupes.forEach(grp=>{
+    const key2=`${getDanseKey()}_grp${grp.id}`;
+    const evalDone=evals[key2];
+    const members=grp.studentIds.map(sid=>{ const s=g.students.find(x=>x.id===sid); return s?`${s.nom} ${s.prenom}`:'?'; }).join(', ');
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<div class="card-row"><div style="flex:1;min-width:0">
+      <div class="card-row" style="gap:8px;margin-bottom:4px">
+        <div class="card-title">Groupe ${grp.id}</div>
+        ${evalDone?`<span class="pill pill-green">✅ Collectif ${evalDone.collectif}/20</span>`:'<span class="pill pill-yellow">⏳ Non évalué</span>'}
+      </div>
+      <div class="card-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${members}</div>
+    </div><div class="card-chevron">›</div></div>`;
+    card.onclick=()=>{ curDanseGroup=grp.id; renderDanseEval(grp); nav('s-danse-eval'); };
+    content.appendChild(card);
+  });
+
+  const expBtn=document.createElement('button'); expBtn.className='btn btn-ghost'; expBtn.style.marginTop='8px';
+  expBtn.innerHTML='📥 Exporter notes Excel'; expBtn.onclick=exportDanseExcel;
+  content.appendChild(expBtn);
+}
+
+function renderDanseAssign() {
+  const g   = groups[curEvalGroup];
+  const key = getDanseKey();
+  if (!danseGroups[key]) danseGroups[key]={ groupes:[] };
+  const data = danseGroups[key];
+  let assignment={};
+  data.groupes.forEach(grp=>grp.studentIds.forEach(sid=>assignment[sid]=grp.id));
+  let nbGroupes=data.groupes.length||7;
+  const content=document.getElementById('danseAssignContent');
+
+  function render() {
+    content.innerHTML=`
+      <div class="slabel">Nombre de groupes</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <button class="btn btn-ghost btn-sm" onclick="chgDGrp(-1)" style="font-size:20px;padding:8px 16px">−</button>
+        <div style="font-size:24px;font-weight:800;min-width:40px;text-align:center">${nbGroupes}</div>
+        <button class="btn btn-ghost btn-sm" onclick="chgDGrp(1)"  style="font-size:20px;padding:8px 16px">+</button>
+      </div>
+      <div class="slabel">${g.students.length} élèves</div>
+      ${g.students.map(s=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px">
+          <div style="font-weight:600;font-size:14px">${s.nom} ${s.prenom}<br><span style="font-size:11px;color:var(--muted)">${s.classe||''}</span></div>
+          <select id="dgrp_${s.id}" onchange="setDSG('${s.id}',this.value)" style="background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:6px 10px;font-family:Outfit,sans-serif;font-size:14px;outline:none">
+            <option value="">— Groupe —</option>
+            ${Array.from({length:nbGroupes},(_,k)=>`<option value="${k+1}" ${assignment[s.id]==k+1?'selected':''}>Groupe ${k+1}</option>`).join('')}
+          </select>
+        </div>`).join('')}`;
+  }
+  window.chgDGrp=function(d){ nbGroupes=Math.max(1,nbGroupes+d); render(); };
+  window.setDSG=function(sid,val){ if(val) assignment[sid]=parseInt(val); else delete assignment[sid]; };
+  window.saveDanseGroups=function(){
+    const grpMap={};
+    Object.entries(assignment).forEach(([sid,gid])=>{ if(!grpMap[gid]) grpMap[gid]=[]; grpMap[gid].push(sid); });
+    danseGroups[key].groupes=Object.entries(grpMap).map(([id,sids])=>({id:parseInt(id),studentIds:sids})).sort((a,b)=>a.id-b.id);
+    saveDanseData(); toast('✅ Groupes enregistrés !');
+    setTimeout(()=>{ renderDanseGroupes(); goBack(); },400);
+  };
+  render();
+}
+
+function renderDanseEval(grp) {
+  const g    = groups[curEvalGroup];
+  const key2 = `${getDanseKey()}_grp${grp.id}`;
+  const saved = evals[key2] || {};
+  const content = document.getElementById('danseEvalContent');
+
+  let collective = saved.collective || {};
+  let individual = saved.individual || {};
+
+  function calcCollectif() { return DANSE_COLLECTIVE.reduce((s,x)=>s+(collective[x.id]||0),0); }
+
+  function render() {
+    const collectif = calcCollectif();
+    const members = grp.studentIds.map(sid=>g.students.find(x=>x.id===sid)).filter(Boolean);
+
+    content.innerHTML=`
+      <div class="slabel" style="margin-top:0">💃 Groupe ${grp.id} · Note collective /20</div>
+
+      ${DANSE_COLLECTIVE.map((crit,ci)=>`
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+          <div style="font-weight:700;margin-bottom:10px">${crit.name} <span style="float:right;color:var(--accent)">/5</span></div>
+          <div style="display:flex;gap:6px">
+            ${[1,2,3,4,5].map((v,i)=>{
+              const c=LEVEL_COLORS[i]; const sel=collective[crit.id]===v;
+              return `<button onclick="setDC('${crit.id}',${v})" style="flex:1;padding:10px 4px;border-radius:8px;border:2px solid ${sel?c.border:'var(--border)'};background:${sel?c.bg:'var(--s2)'};color:${sel?c.text:'var(--muted)'};font-weight:700;cursor:pointer;font-size:15px">${v}</button>`;
+            }).join('')}
+          </div>
+        </div>`).join('')}
+
+      <div style="background:rgba(88,166,255,.1);border:1px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:4px">NOTE COLLECTIVE</div>
+        <div style="font-size:36px;font-weight:900;color:var(--accent)">${collectif}<span style="font-size:18px;color:var(--muted)">/20</span></div>
+      </div>
+
+      <div class="slabel">🎭 Notes individuelles /20</div>
+
+      ${members.map(stu=>{
+        const ind=individual[stu.id]||{};
+        const indTotal=DANSE_INDIVIDUEL.reduce((s,x)=>s+(ind[x.id]||0),0);
+        return `
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-weight:700">${stu.nom} ${stu.prenom}</div>
+            <span style="font-weight:800;color:var(--green);font-size:16px">${indTotal}/20</span>
+          </div>
+          ${DANSE_INDIVIDUEL.map((crit,ci)=>`
+            <div style="margin-bottom:10px">
+              <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">${crit.name} /5</div>
+              <div style="display:flex;gap:6px">
+                ${[1,2,3,4,5].map((v,i)=>{
+                  const c=LEVEL_COLORS[i]; const sel=ind[crit.id]===v;
+                  return `<button onclick="setDI('${stu.id}','${crit.id}',${v})" style="flex:1;padding:8px 2px;border-radius:8px;border:2px solid ${sel?c.border:'var(--border)'};background:${sel?c.bg:'var(--s2)'};color:${sel?c.text:'var(--muted)'};font-weight:700;cursor:pointer;font-size:14px">${v}</button>`;
+                }).join('')}
+              </div>
+            </div>`).join('')}
+        </div>`;
+      }).join('')}`;
+  }
+
+  window.setDC=function(field,val){ collective[field]=val; render(); };
+  window.setDI=function(sid,field,val){ if(!individual[sid]) individual[sid]={}; individual[sid][field]=val; render(); };
+  window.saveDanseEval=function(){
+    const collectif=calcCollectif();
+    if(collectif===0){ toast('⚠️ Remplis les critères collectifs'); return; }
+    const members=grp.studentIds.map(sid=>g.students.find(x=>x.id===sid)).filter(Boolean);
+    members.forEach(stu=>{
+      if(!individual[stu.id]) individual[stu.id]={};
+      individual[stu.id].total=DANSE_INDIVIDUEL.reduce((s,x)=>s+(individual[stu.id][x.id]||0),0);
+    });
+    evals[key2]={ collective, individual, collectif, date:new Date().toISOString().slice(0,10) };
+    saveEvals(); toast('✅ Évaluation enregistrée !');
+    setTimeout(()=>{ renderDanseGroupes(); goBack(); },400);
+  };
+  render();
+}
+
+function exportDanseExcel() {
+  const g    = groups[curEvalGroup];
+  const key  = getDanseKey();
+  const data = danseGroups[key]||{ groupes:[] };
+  const rows = [['Groupe','Nom','Prénom','Classe',
+    ...DANSE_COLLECTIVE.map(c=>c.name),
+    'Note collective /20',
+    ...DANSE_INDIVIDUEL.map(c=>c.name),
+    'Note individuelle /20','Date']];
+
+  data.groupes.forEach(grp=>{
+    const key2=`${getDanseKey()}_grp${grp.id}`;
+    const res=evals[key2];
+    grp.studentIds.forEach(sid=>{
+      const s=g.students.find(x=>x.id===sid);
+      if(!s) return;
+      if(res){
+        const ind=res.individual[sid]||{};
+        rows.push([
+          `Groupe ${grp.id}`, s.nom, s.prenom, s.classe||'',
+          ...DANSE_COLLECTIVE.map(c=>res.collective[c.id]||0),
+          res.collectif,
+          ...DANSE_INDIVIDUEL.map(c=>ind[c.id]||0),
+          ind.total||0, res.date||''
+        ]);
+      } else {
+        rows.push([`Groupe ${grp.id}`,s.nom,s.prenom,s.classe||'',...Array(9).fill(''),'Non évalué','']);
+      }
+    });
+  });
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:10},{wch:20},{wch:16},{wch:12},{wch:20},{wch:20},{wch:20},{wch:20},{wch:16},{wch:20},{wch:20},{wch:20},{wch:20},{wch:18},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,`Danse_${g.name}`.slice(0,31));
+  XLSX.writeFile(wb,`Eval_Danse_${g.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('📥 Export téléchargé !');
+}
+
+// ══════════════════════
 //  EXPORT / IMPORT DATA
 // ══════════════════════
 function exportData() {
   const data = {
     version: 1,
     date: new Date().toISOString(),
-    groups, evals, cirqueGroups,
+    groups, evals, cirqueGroups, danseGroups,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -2429,10 +2686,11 @@ function importData(event) {
       const data = JSON.parse(e.target.result);
       if (!data.groups) { toast('❌ Fichier invalide'); return; }
       if (!confirm(`Importer la sauvegarde du ${data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '?'} ?\nCela remplacera toutes tes données actuelles.`)) return;
-      groups      = data.groups      || [];
-      evals       = data.evals       || {};
-      cirqueGroups= data.cirqueGroups|| {};
-      save(); saveEvals(); saveCirqueData();
+      groups       = data.groups       || [];
+      evals        = data.evals        || {};
+      cirqueGroups = data.cirqueGroups || {};
+      danseGroups  = data.danseGroups  || {};
+      save(); saveEvals(); saveCirqueData(); saveDanseData();
       renderHome();
       toast('✅ Données restaurées !');
     } catch { toast('❌ Fichier invalide'); }
