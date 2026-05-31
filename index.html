@@ -749,6 +749,7 @@ function renderApsaDetail() {
   const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent='Choisir le groupe';
   list.appendChild(lbl);
   groups.forEach((g,i)=>{
+    const card=document.createElement('div'); card.className='card';
     card.innerHTML=`<div class="card-row"><div style="flex:1">
       <div class="card-title">${g.name}</div>
       <div class="card-meta">${g.students?.length||0} élèves</div>
