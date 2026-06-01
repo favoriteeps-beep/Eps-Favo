@@ -263,6 +263,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="fab" onclick="nav('s-new-group')">+</button>
   </div>
   <div id="tab-content-apsa" style="display:none">
+    <div id="joContent" style="display:none"></div>
     <div id="apsaList"></div>
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
       <div class="slabel" style="margin-top:0">💾 Sauvegarde des données</div>
@@ -669,10 +670,9 @@ function switchTab(tab) {
   document.getElementById('tab-content-groupes').style.display = tab==='groupes' ? '' : 'none';
   document.getElementById('tab-content-apsa').style.display    = tab==='apsa'    ? '' : 'none';
   document.getElementById('tab-groupes').classList.toggle('active', tab==='groupes');
-  document.getElementById('tab-apsa').classList.toggle('active', tab==='apsa');
+  document.getElementById('tab-apsa').classList.toggle('active',    tab==='apsa');
   if (tab==='apsa') renderApsaHome();
   else renderHome();
-  // fab only on groupes
   const fab = document.querySelector('.fab');
   if (fab) fab.style.display = tab==='groupes' ? '' : 'none';
 }
@@ -714,8 +714,29 @@ function renderHome() {
 function renderApsaHome() {
   const list = document.getElementById('apsaList');
   list.innerHTML='';
+  document.getElementById('joContent').style.display='none';
+  list.style.display='';
+
   const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent='Activités disponibles';
   list.appendChild(lbl);
+
+  // JO card
+  const joCard=document.createElement('div'); joCard.className='apsa-card';
+  joCard.innerHTML=`
+    <div class="apsa-icon" style="background:#f0c040aa">🏛️</div>
+    <div class="apsa-info">
+      <div class="apsa-title">Olympiades 5ème</div>
+      <div class="apsa-meta">Relais + Quiz Antiquité</div>
+    </div>
+    <div class="card-chevron">›</div>`;
+  joCard.onclick=()=>{
+    list.style.display='none';
+    const jc=document.getElementById('joContent');
+    jc.style.display='';
+    joView='home'; renderJO();
+  };
+  list.appendChild(joCard);
+
   APSAS.forEach(apsa=>{
     const card=document.createElement('div'); card.className='apsa-card';
     card.innerHTML=`
@@ -2661,13 +2682,437 @@ function exportDanseExcel() {
 }
 
 // ══════════════════════
+//  JEUX OLYMPIQUES 5ème
+// ══════════════════════
+const JO_CLASSES = [
+  { id:1, nom:'5ème 1', cite:'Corinthe', couleur:'#e8e8e8', texte:'#1a1a1a', emoji:'🤍' },
+  { id:2, nom:'5ème 2', cite:'Némée',    couleur:'#2563eb', texte:'#ffffff', emoji:'💙' },
+  { id:3, nom:'5ème 3', cite:'Delphes',  couleur:'#16a34a', texte:'#ffffff', emoji:'💚' },
+  { id:4, nom:'5ème 4', cite:'Athènes',  couleur:'#dc2626', texte:'#ffffff', emoji:'❤️' },
+  { id:5, nom:'5ème 5', cite:'Olympie',  couleur:'#1a1a2e', texte:'#ffffff', emoji:'🖤' },
+  { id:6, nom:'5ème 6', cite:'Sparte',   couleur:'#ca8a04', texte:'#ffffff', emoji:'💛' },
+];
+
+const JO_QUIZ = [
+  {
+    n:1, q:"D'après la légende, qui aurait créé les Jeux Olympiques dans l'Antiquité ?",
+    choix:["Hercule","Dromeus de Stymphale","Ikkos de Tarente","Milon de Crotone"],
+    rep:0
+  },
+  {
+    n:2, q:"Les Jeux Olympiques antiques ont été créés au cours du :",
+    choix:["IXe siècle av. J.-C.","Xe siècle av. J.-C.","VIIe siècle av. J.-C.","VIIIe siècle av. J.-C."],
+    rep:3
+  },
+  {
+    n:3, q:"Les Jeux Olympiques ont lieu tous les 4 ans. Comment s'appelle cette période ?",
+    choix:["Méandre","Interstice","Quatriane","Olympiade"],
+    rep:3
+  },
+  {
+    n:4, q:"Quel message était véhiculé par la trêve olympique ?",
+    choix:["Permettre aux athlètes de voyager en paix jusqu'à Olympie","Éviter les disputes dans les stades","Organiser les Jeux dans toutes les cités en même temps","Honorer les femmes et les enfants"],
+    rep:0
+  },
+  {
+    n:5, q:"Quel dieu était honoré lors des Jeux de l'Isthme de Corinthe ?",
+    choix:["Hermès","Océanos","Arès","Poséidon"],
+    rep:3
+  },
+  {
+    n:6, q:"Quels athlètes étaient acceptés aux Jeux Olympiques antiques ?",
+    choix:["Les hommes et femmes grecs de plus de 18 ans","Tous les habitants de l'Empire romain","Les citoyens grecs libres uniquement","Tous les hommes libres du monde antique"],
+    rep:2
+  },
+  {
+    n:7, q:"Comment les athlètes participaient-ils aux épreuves olympiques ?",
+    choix:["Avec une armure légère","Nus et enduits d'huile","Avec une tunique courte","Avec un pagne de cuir"],
+    rep:1
+  },
+  {
+    n:8, q:"Le Pentathlon comportait cinq épreuves : saut en longueur, lancer du disque, course, lutte et :",
+    choix:["La natation","Le saut en hauteur","Le lancer du poids","Le lancer du javelot"],
+    rep:3
+  },
+  {
+    n:9, q:"Quel était le risque pour un athlète surpris en train de tricher ?",
+    choix:["L'interdiction de représenter sa cité","Une peine de prison","Une amende pour financer une statue rappelant sa tricherie","Une exclusion temporaire"],
+    rep:2
+  },
+  {
+    n:10, q:"ESTIMATION — Combien d'années se sont écoulées entre les premiers JO antiques (776 av. J.-C.) et les JO de Paris 2024 ?",
+    choix:[], rep:null,
+    reponse:"environ 2 800 ans",
+    estimation:true
+  },
+  {
+    n:'BONUS', q:"BONUS — Selon vous, quelle était la longueur d'un stade olympique antique ?",
+    choix:[], rep:null,
+    reponse:"192 mètres",
+    bonus:true
+  },
+];
+
+let joData = DB.get('eps_jo') || {
+  relais:   { classement:[] },   // [classeId, classeId, ...]
+  quiz:     { classement:[] },
+  quizQ:    {},                  // { questionN: [classeId ranking] }
+};
+function saveJO() { DB.set('eps_jo', joData); }
+
+let joView = 'home'; // 'home' | 'relais' | 'quiz' | 'classement' | 'quizQuestion'
+let joQuizQ = 0; // current quiz question index
+let joQuizRevealed = false;
+
+function renderJO() {
+  const content = document.getElementById('joContent');
+  if (joView==='home')        renderJOHome(content);
+  else if (joView==='relais') renderJORelais(content);
+  else if (joView==='quiz')   renderJOQuizMenu(content);
+  else if (joView==='quizQ')  renderJOQuestion(content);
+  else if (joView==='classement') renderJOClassement(content);
+}
+
+function renderJOHome(content) {
+  content.innerHTML = `
+    <div style="text-align:center;padding:16px 0 8px">
+      <div style="font-size:36px;margin-bottom:4px">🏛️</div>
+      <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--text)">OLYMPIADES 2026</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">5ème · Jeux Olympiques Antiques</div>
+    </div>
+
+    <!-- Classes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
+      ${JO_CLASSES.map(c=>`
+        <div style="background:${c.couleur};border-radius:12px;padding:12px 8px;text-align:center">
+          <div style="font-size:20px;margin-bottom:2px">${c.emoji}</div>
+          <div style="font-weight:800;font-size:13px;color:${c.texte}">${c.cite}</div>
+          <div style="font-size:11px;color:${c.texte};opacity:.8">${c.nom}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="slabel">Épreuves</div>
+    <div class="card" onclick="joView='relais';renderJO()">
+      <div class="card-row">
+        <div style="font-size:28px;margin-right:12px">🏃</div>
+        <div style="flex:1">
+          <div class="card-title">Relais 30 personnes</div>
+          <div class="card-meta">${joData.relais.classement.length ? '✅ Classement enregistré' : '⏳ Non effectué'}</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>
+    </div>
+    <div class="card" onclick="joView='quiz';renderJO()">
+      <div class="card-row">
+        <div style="font-size:28px;margin-right:12px">🏛️</div>
+        <div style="flex:1">
+          <div class="card-title">Quiz Antiquité</div>
+          <div class="card-meta">${joData.quiz.classement.length ? '✅ Classement enregistré' : '⏳ Non effectué'} · ${JO_QUIZ.length} questions</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>
+    </div>
+    <div class="card" onclick="joView='classement';renderJO()">
+      <div class="card-row">
+        <div style="font-size:28px;margin-right:12px">🏅</div>
+        <div style="flex:1">
+          <div class="card-title">Classement général</div>
+          <div class="card-meta">Total Relais + Quiz</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="document.getElementById('joContent').style.display='none';document.getElementById('apsaList').style.display='';renderApsaHome()">← Retour aux APSA</button>`;
+}
+
+function renderJORelais(content) {
+  let classement = joData.relais.classement.length
+    ? [...joData.relais.classement]
+    : JO_CLASSES.map(c=>c.id);
+
+  function render() {
+    const pts = [6,5,4,3,2,1];
+    content.innerHTML = `
+      <div class="slabel" style="margin-top:0">🏃 Relais — Ordre d'arrivée</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Glisse les classes pour les réordonner</div>
+      <div id="relais-list">
+        ${classement.map((cid,i)=>{
+          const c = JO_CLASSES.find(x=>x.id===cid);
+          return `
+          <div draggable="true" data-id="${cid}" style="display:flex;align-items:center;gap:10px;
+            background:var(--s1);border:1px solid var(--border);border-radius:12px;
+            padding:12px 14px;margin-bottom:8px;cursor:grab;user-select:none;
+            transition:opacity .2s,transform .2s" id="relais-item-${cid}">
+            <div style="font-size:20px;color:var(--muted);min-width:28px;font-weight:900">${i+1}</div>
+            <div style="width:36px;height:36px;border-radius:8px;background:${c.couleur};
+              display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.emoji}</div>
+            <div style="flex:1">
+              <div style="font-weight:700">${c.cite}</div>
+              <div style="font-size:12px;color:var(--muted)">${c.nom}</div>
+            </div>
+            <div style="background:rgba(88,166,255,.15);color:var(--accent);border-radius:8px;
+              padding:4px 12px;font-weight:800;font-size:14px">${pts[i]} pts</div>
+            <div style="color:var(--muted);font-size:18px">☰</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px" onclick="saveRelais()">💾 Enregistrer le classement</button>
+      <button class="btn btn-ghost" onclick="joView='home';renderJO()">← Retour</button>`;
+
+    // Init drag & drop
+    initRelaisDnD();
+  }
+
+  function initRelaisDnD() {
+    const list = document.getElementById('relais-list');
+    if (!list) return;
+    let dragging = null;
+
+    list.querySelectorAll('[data-id]').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        dragging = item;
+        setTimeout(() => item.style.opacity = '0.4', 0);
+      });
+      item.addEventListener('dragend', () => {
+        item.style.opacity = '1';
+        item.style.transform = '';
+        dragging = null;
+        // Update classement from DOM order
+        classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
+        render();
+      });
+      item.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (!dragging || dragging === item) return;
+        const rect = item.getBoundingClientRect();
+        const mid  = rect.top + rect.height / 2;
+        if (e.clientY < mid) list.insertBefore(dragging, item);
+        else list.insertBefore(dragging, item.nextSibling);
+      });
+
+      // Touch support
+      let touchStartY = 0, touchItem = null;
+      item.addEventListener('touchstart', e => {
+        touchStartY = e.touches[0].clientY;
+        touchItem = item;
+        item.style.opacity = '0.6';
+      }, {passive:true});
+      item.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const els = [...list.querySelectorAll('[data-id]')];
+        const target = els.find(el => {
+          if (el === touchItem) return false;
+          const r = el.getBoundingClientRect();
+          return touch.clientY >= r.top && touch.clientY <= r.bottom;
+        });
+        if (target) {
+          const rect = target.getBoundingClientRect();
+          const mid  = rect.top + rect.height / 2;
+          if (touch.clientY < mid) list.insertBefore(touchItem, target);
+          else list.insertBefore(touchItem, target.nextSibling);
+        }
+      }, {passive:false});
+      item.addEventListener('touchend', () => {
+        item.style.opacity = '1';
+        classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
+        render();
+      });
+    });
+  }
+
+  window.saveRelais = function() {
+    const list = document.getElementById('relais-list');
+    if (list) classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
+    joData.relais.classement = classement;
+    saveJO(); toast('✅ Relais enregistré !');
+    joView='home'; renderJO();
+  };
+
+  render();
+}
+
+function renderJOQuizMenu(content) {
+  content.innerHTML = `
+    <div class="slabel" style="margin-top:0">🏛️ Quiz Antiquité</div>
+
+    <div class="card" onclick="joQuizQ=0;joQuizRevealed=false;joView='quizQ';renderJO()">
+      <div class="card-row">
+        <div style="font-size:24px;margin-right:12px">▶️</div>
+        <div style="flex:1">
+          <div class="card-title">Lancer le quiz</div>
+          <div class="card-meta">Présenter les questions une par une</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slabel">Classement final du quiz</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Après le quiz, saisis le classement des classes</div>
+    ${renderClassementPicker('quiz')}
+    <button class="btn btn-primary" onclick="saveQuizClassement()">💾 Enregistrer le classement quiz</button>
+    <button class="btn btn-ghost" onclick="joView='home';renderJO()">← Retour</button>`;
+  setTimeout(()=>initPickerDnD('quiz'),50);
+}
+
+function renderClassementPicker(type) {
+  quizClassement = joData[type].classement.length
+    ? [...joData[type].classement]
+    : JO_CLASSES.map(c=>c.id);
+  const pts=[6,5,4,3,2,1];
+  return `<div id="picker_${type}" style="margin-bottom:12px">
+    ${quizClassement.map((cid,i)=>{
+      const c=JO_CLASSES.find(x=>x.id===cid);
+      return `
+      <div draggable="true" data-id="${cid}" data-type="${type}" style="display:flex;align-items:center;gap:10px;
+        background:var(--s1);border:1px solid var(--border);border-radius:12px;
+        padding:10px 12px;margin-bottom:8px;cursor:grab;user-select:none">
+        <div style="font-weight:900;font-size:18px;color:var(--muted);min-width:24px">${i+1}</div>
+        <div style="width:32px;height:32px;border-radius:8px;background:${c.couleur};display:flex;align-items:center;justify-content:center;font-size:16px">${c.emoji}</div>
+        <div style="flex:1"><div style="font-weight:700;font-size:14px">${c.cite}</div><div style="font-size:11px;color:var(--muted)">${c.nom}</div></div>
+        <div style="color:var(--accent);font-weight:800;font-size:13px">${pts[i]} pts</div>
+        <div style="color:var(--muted);font-size:16px">☰</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function initPickerDnD(type) {
+  const list = document.getElementById(`picker_${type}`);
+  if (!list) return;
+  list.querySelectorAll('[data-id]').forEach(item => {
+    item.addEventListener('dragstart', () => { setTimeout(()=>item.style.opacity='0.4',0); });
+    item.addEventListener('dragend',   () => {
+      item.style.opacity='1';
+      quizClassement=[...list.querySelectorAll('[data-id]')].map(el=>parseInt(el.dataset.id));
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      const rect=item.getBoundingClientRect();
+      if (e.clientY<rect.top+rect.height/2) list.insertBefore(list.querySelector('[draggable][style*="opacity: 0.4"]')||item,item);
+      else list.insertBefore(list.querySelector('[draggable][style*="opacity: 0.4"]')||item,item.nextSibling);
+    });
+    // Touch
+    item.addEventListener('touchstart', e=>{ item.style.opacity='0.6'; },{passive:true});
+    item.addEventListener('touchmove', e=>{
+      e.preventDefault();
+      const touch=e.touches[0];
+      const els=[...list.querySelectorAll('[data-id]')];
+      const target=els.find(el=>{
+        if(el===item) return false;
+        const r=el.getBoundingClientRect();
+        return touch.clientY>=r.top&&touch.clientY<=r.bottom;
+      });
+      if(target){ const r=target.getBoundingClientRect(); if(touch.clientY<r.top+r.height/2) list.insertBefore(item,target); else list.insertBefore(item,target.nextSibling); }
+    },{passive:false});
+    item.addEventListener('touchend',()=>{
+      item.style.opacity='1';
+      quizClassement=[...list.querySelectorAll('[data-id]')].map(el=>parseInt(el.dataset.id));
+    });
+  });
+}
+window.saveQuizClassement = function() {
+  const list = document.getElementById('picker_quiz');
+  if (list) quizClassement=[...list.querySelectorAll('[data-id]')].map(el=>parseInt(el.dataset.id));
+  joData.quiz.classement=quizClassement;
+  saveJO(); toast('✅ Classement quiz enregistré !');
+  joView='home'; renderJO();
+};
+
+function renderJOQuestion(content) {
+  const q = JO_QUIZ[joQuizQ];
+  if (!q) { joView='quiz'; renderJO(); return; }
+  const letters=['A','B','C','D'];
+  content.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="slabel" style="margin:0">${q.bonus?'⭐ BONUS':q.estimation?'🎯 ESTIMATION':'Question '+q.n+' / 10'}</div>
+      <div style="font-size:12px;color:var(--muted)">${joQuizQ+1}/${JO_QUIZ.length}</div>
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700;line-height:1.5;margin-bottom:16px">${q.q}</div>
+      ${q.choix && q.choix.length ? q.choix.map((ch,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;
+          background:${joQuizRevealed&&i===q.rep?'rgba(63,185,80,.2)':joQuizRevealed&&i!==q.rep?'rgba(248,81,73,.08)':'var(--s2)'};
+          border:2px solid ${joQuizRevealed&&i===q.rep?'var(--green)':'var(--border)'}">
+          <div style="font-weight:800;font-size:14px;color:var(--accent);min-width:20px">${letters[i]}</div>
+          <div style="font-size:14px;font-weight:${joQuizRevealed&&i===q.rep?700:400};color:${joQuizRevealed&&i===q.rep?'var(--green)':'var(--text)'}">${ch}</div>
+          ${joQuizRevealed&&i===q.rep?'<div style="margin-left:auto;font-size:18px">✅</div>':''}
+        </div>`).join('') : `
+        <div style="background:var(--s2);border-radius:10px;padding:16px;text-align:center;border:2px dashed var(--border)">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Question ouverte</div>
+          <div style="font-size:14px;color:var(--text)">Les classes proposent leur réponse à l'oral</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">➡️ La classe la plus proche gagne le point</div>
+        </div>`}
+    </div>
+
+    ${!joQuizRevealed
+      ? `<button class="btn btn-primary" onclick="joQuizRevealed=true;renderJO()">🔍 Révéler la réponse</button>`
+      : `<div style="background:rgba(63,185,80,.1);border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:12px;text-align:center">
+           <div style="font-size:13px;color:var(--muted)">${q.estimation||q.bonus?'Réponse attendue':'Bonne réponse'}</div>
+           <div style="font-size:17px;font-weight:800;color:var(--green)">${q.reponse||q.choix[q.rep]}</div>
+           ${q.estimation||q.bonus?'<div style="font-size:12px;color:var(--muted);margin-top:4px">➡️ La classe la plus proche remporte le point</div>':''}
+         </div>
+         ${joQuizQ < JO_QUIZ.length-1
+           ? `<button class="btn btn-primary" onclick="joQuizQ++;joQuizRevealed=false;renderJO()">Question suivante →</button>`
+           : `<button class="btn btn-success" onclick="joView='quiz';renderJO()">🏁 Fin du quiz — Saisir le classement</button>`}`}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      ${joQuizQ > 0 ? `<button class="btn btn-ghost" style="flex:1" onclick="joQuizQ--;joQuizRevealed=false;renderJO()">← Précédente</button>` : '<div style="flex:1"></div>'}
+      ${joQuizQ < JO_QUIZ.length-1 && joQuizRevealed ? '' : joQuizQ < JO_QUIZ.length-1 ? `<button class="btn btn-ghost" style="flex:1" onclick="joQuizQ++;joQuizRevealed=false;renderJO()">Suivante →</button>` : ''}
+    </div>
+    <button class="btn btn-ghost" onclick="joView='quiz';renderJO()">← Menu quiz</button>`;
+}
+
+function renderJOClassement(content) {
+  const pts=[6,5,4,3,2,1];
+  // Calculate totals
+  const totaux = JO_CLASSES.map(c=>{
+    const rIdx=joData.relais.classement.indexOf(c.id);
+    const qIdx=joData.quiz.classement.indexOf(c.id);
+    const rPts=rIdx>=0?pts[rIdx]:0;
+    const qPts=qIdx>=0?pts[qIdx]:0;
+    return { ...c, relais:rPts, quiz:qPts, total:rPts+qPts };
+  }).sort((a,b)=>b.total-a.total);
+
+  const medals=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣'];
+
+  content.innerHTML=`
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="font-size:32px">🏅</div>
+      <div style="font-size:20px;font-weight:900">CLASSEMENT GÉNÉRAL</div>
+      <div style="font-size:12px;color:var(--muted)">Olympiades 2026 · 5ème</div>
+    </div>
+
+    ${totaux.map((c,i)=>`
+      <div style="display:flex;align-items:center;gap:12px;background:${i===0?'rgba(210,153,34,.15)':i===1?'rgba(150,150,150,.1)':i===2?'rgba(180,100,30,.1)':'var(--s1)'};
+        border:2px solid ${i===0?'var(--yellow)':i===1?'#aaa':i===2?'#cd7f32':'var(--border)'};
+        border-radius:14px;padding:14px;margin-bottom:10px">
+        <div style="font-size:28px">${medals[i]}</div>
+        <div style="width:40px;height:40px;border-radius:10px;background:${c.couleur};display:flex;align-items:center;justify-content:center;font-size:22px">${c.emoji}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:16px">${c.cite}</div>
+          <div style="font-size:12px;color:var(--muted)">${c.nom}</div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <span style="font-size:11px;color:var(--muted)">🏃 ${c.relais}pts</span>
+            <span style="font-size:11px;color:var(--muted)">🏛️ ${c.quiz}pts</span>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:900;color:${i===0?'var(--yellow)':i<=2?'var(--accent)':'var(--text)'}">${c.total}</div>
+          <div style="font-size:11px;color:var(--muted)">pts</div>
+        </div>
+      </div>`).join('')}
+
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="joView='home';renderJO()">← Retour</button>`;
+}
+
+// ══════════════════════
 //  EXPORT / IMPORT DATA
 // ══════════════════════
 function exportData() {
   const data = {
     version: 1,
     date: new Date().toISOString(),
-    groups, evals, cirqueGroups, danseGroups,
+    groups, evals, cirqueGroups, danseGroups, joData,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -2692,7 +3137,8 @@ function importData(event) {
       evals        = data.evals        || {};
       cirqueGroups = data.cirqueGroups || {};
       danseGroups  = data.danseGroups  || {};
-      save(); saveEvals(); saveCirqueData(); saveDanseData();
+      joData       = data.joData       || { relais:{classement:[]}, quiz:{classement:[]}, quizQ:{} };
+      save(); saveEvals(); saveCirqueData(); saveDanseData(); saveJO();
       renderHome();
       toast('✅ Données restaurées !');
     } catch { toast('❌ Fichier invalide'); }
