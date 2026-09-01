@@ -446,34 +446,13 @@ function saveDanseData() { DB.set('eps_danse_groups',  danseGroups); }
 // ══════════════════════
 const APSAS = [
   {
-    id: 'natation',
-    icon: '🏊',
-    name: 'Natation 6ème',
-    color: '#58a6ff',
-    evals: [
-      { id: 'savoir-nager', name: 'Test du savoir nager', icon: '🛟', desc: '11 étapes à valider' },
-      { id: '20m',          name: '20m départ dans l\'eau', icon: '⏱️', desc: '5 niveaux · note /20' },
-      { id: 'aisance',      name: 'Aisance aquatique', icon: '🌊', desc: 'Coulée ou cerceaux · 5 niveaux' },
-    ]
-  },
-  {
     id: 'cirque',
     icon: '🎪',
     name: 'Cirque 2nde',
     color: '#bc8cff',
+    niveaux: ['2nde'],
     evals: [
       { id: 'cirque-eval', name: 'Évaluation cirque', icon: '🤹', desc: 'Note collective /16 + individuelle /4 = /20' },
-    ]
-  },
-  {
-    id: 'escalade',
-    icon: '🧗',
-    name: 'Escalade 2nde',
-    color: '#e3894b',
-    evals: [
-      { id: 'escalade-cycle',  name: 'Suivi de cycle',    icon: '📋', desc: 'Savoirs faire + Traversée + Bonus' },
-      { id: 'escalade-finale', name: 'Évaluation finale', icon: '🏆', desc: 'Score → note /20' },
-      { id: 'escalade-bloc',   name: 'Bloc',              icon: '🪨', desc: '9 murs · niveau 0 à 5 → note /20' },
     ]
   },
   {
@@ -481,6 +460,7 @@ const APSAS = [
     icon: '💃',
     name: 'Danse 1ère/Term',
     color: '#ff6584',
+    niveaux: ['1ère','Terminale'],
     evals: [
       { id: 'danse-eval', name: 'Évaluation danse', icon: '🎭', desc: 'Note collective /20 + individuelle /20' },
     ]
@@ -490,13 +470,38 @@ const APSAS = [
     icon: '🏃',
     name: 'Demi-fond 2nde',
     color: '#3fb950',
+    niveaux: ['2nde'],
     evals: [
-      { id: 'df-allure',  name: 'Allure rapide',    icon: '⚡', desc: 'Vitesse km/h → note /20' },
-      { id: 'df-records', name: 'Records',           icon: '⏱️', desc: '45sec + 1\'30 + 3min → note record' },
-      { id: 'df-suivi',   name: 'Suivi de cycle',   icon: '📋', desc: '4 items × 5pts = /20' },
+      { id: 'df-allure',  name: 'Allure rapide',  icon: '⚡', desc: 'Vitesse km/h → note /20' },
+      { id: 'df-records', name: 'Records',         icon: '⏱️', desc: '45sec + 1\'30 + 3min → note record' },
+      { id: 'df-suivi',   name: 'Suivi de cycle', icon: '📋', desc: '4 items × 5pts = /20' },
       { id: 'df-finale',  name: 'Éval finale',    icon: '🎯', desc: 'Écarts → 20 - (écarts × 2)' },
     ]
-  }
+  },
+  {
+    id: 'escalade',
+    icon: '🧗',
+    name: 'Escalade 2nde',
+    color: '#e3894b',
+    niveaux: ['2nde'],
+    evals: [
+      { id: 'escalade-cycle',  name: 'Suivi de cycle',    icon: '📋', desc: 'Savoirs faire + Traversée + Bonus' },
+      { id: 'escalade-finale', name: 'Évaluation finale', icon: '🏆', desc: 'Score → note /20' },
+      { id: 'escalade-bloc',   name: 'Bloc',              icon: '🪨', desc: '9 murs · niveau 0 à 5 → note /20' },
+    ]
+  },
+  {
+    id: 'natation',
+    icon: '🏊',
+    name: 'Natation 6ème',
+    color: '#58a6ff',
+    niveaux: ['6ème'],
+    evals: [
+      { id: 'savoir-nager', name: 'Test du savoir nager', icon: '🛟', desc: '4 étapes à valider' },
+      { id: '20m',          name: '20m départ dans l\'eau', icon: '⏱️', desc: '5 niveaux · note /20' },
+      { id: 'aisance',      name: 'Aisance aquatique', icon: '🌊', desc: 'Coulée ou cerceaux · 5 niveaux' },
+    ]
+  },
 ];
 
 // Couleurs progressives rouge→vert pour niveaux 1→5
@@ -766,10 +771,26 @@ function renderApsaDetail() {
     return;
   }
 
-  // Choisir le groupe
-  const lbl=document.createElement('div'); lbl.className='slabel'; lbl.textContent='Choisir le groupe';
+  // Filtrer les groupes compatibles avec le niveau de l'APSA
+  const filteredGroups = apsa.niveaux
+    ? groups.filter((g,i) => apsa.niveaux.some(n => g.level && g.level.toLowerCase().includes(n.toLowerCase())))
+    : groups;
+
+  if (!filteredGroups.length) {
+    const empty=document.createElement('div'); empty.className='empty';
+    empty.innerHTML=`<div class="empty-icon">📋</div><div class="empty-text">Aucun groupe de niveau ${apsa.niveaux?.join(' / ')||'compatible'}.<br>Crée d'abord un groupe avec le bon niveau.</div>`;
+    list.appendChild(empty);
+    const back2=document.createElement('button'); back2.className='btn btn-ghost';
+    back2.textContent='← Retour'; back2.onclick=()=>{ list.style.display=''; renderApsaHome(); };
+    list.appendChild(back2);
+    return;
+  }
+
+  const lbl=document.createElement('div'); lbl.className='slabel';
+  lbl.textContent=`Choisir le groupe · ${apsa.niveaux?.join(', ')||''}`;
   list.appendChild(lbl);
-  groups.forEach((g,i)=>{
+  filteredGroups.forEach((g,_)=>{
+    const i = groups.indexOf(g);
     const card=document.createElement('div'); card.className='card';
     card.innerHTML=`<div class="card-row"><div style="flex:1">
       <div class="card-title">${g.name}</div>
@@ -2826,105 +2847,57 @@ function renderJOHome(content) {
 }
 
 function renderJORelais(content) {
-  let classement = joData.relais.classement.length
-    ? [...joData.relais.classement]
-    : JO_CLASSES.map(c=>c.id);
+  let rangs = joData.relais.rangs || {};
+  // Migration depuis ancien système classement
+  if (!Object.keys(rangs).length && joData.relais.classement.length) {
+    joData.relais.classement.forEach((cid,i) => rangs[cid] = i+1);
+  }
+
+  const pts = {1:6, 2:5, 3:4, 4:3, 5:2, 6:1};
 
   function render() {
-    const pts = [6,5,4,3,2,1];
     content.innerHTML = `
-      <div class="slabel" style="margin-top:0">🏃 Relais — Ordre d'arrivée</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Glisse les classes pour les réordonner</div>
-      <div id="relais-list">
-        ${classement.map((cid,i)=>{
-          const c = JO_CLASSES.find(x=>x.id===cid);
-          return `
-          <div draggable="true" data-id="${cid}" style="display:flex;align-items:center;gap:10px;
-            background:var(--s1);border:1px solid var(--border);border-radius:12px;
-            padding:12px 14px;margin-bottom:8px;cursor:grab;user-select:none;
-            transition:opacity .2s,transform .2s" id="relais-item-${cid}">
-            <div style="font-size:20px;color:var(--muted);min-width:28px;font-weight:900">${i+1}</div>
-            <div style="width:36px;height:36px;border-radius:8px;background:${c.couleur};
-              display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.emoji}</div>
-            <div style="flex:1">
-              <div style="font-weight:700">${c.cite}</div>
-              <div style="font-size:12px;color:var(--muted)">${c.nom}</div>
-            </div>
-            <div style="background:rgba(88,166,255,.15);color:var(--accent);border-radius:8px;
-              padding:4px 12px;font-weight:800;font-size:14px">${pts[i]} pts</div>
-            <div style="color:var(--muted);font-size:18px">☰</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <button class="btn btn-primary" style="margin-top:8px" onclick="saveRelais()">💾 Enregistrer le classement</button>
+      <div class="slabel" style="margin-top:0">🏃 Relais — Rang d'arrivée</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Attribue un rang à chaque classe · Plusieurs classes peuvent avoir le même rang</div>
+      ${JO_CLASSES.map(c => {
+        const rang = rangs[c.id] || null;
+        return `
+        <div style="display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);
+          border-radius:12px;padding:12px 14px;margin-bottom:8px">
+          <div style="width:38px;height:38px;border-radius:9px;background:${c.couleur};
+            display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${c.emoji}</div>
+          <div style="flex:1">
+            <div style="font-weight:700">${c.cite}</div>
+            <div style="font-size:12px;color:var(--muted)">${c.nom}</div>
+          </div>
+          <div style="display:flex;gap:5px">
+            ${[1,2,3,4,5,6].map(r => `
+              <button onclick="setRang(${c.id},${r})" style="
+                width:34px;height:34px;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;
+                border:2px solid ${rang===r?'var(--accent)':'var(--border)'};
+                background:${rang===r?'rgba(88,166,255,.25)':'var(--s2)'};
+                color:${rang===r?'var(--accent)':'var(--muted)'}">${r}</button>
+            `).join('')}
+          </div>
+          ${rang ? `<div style="background:rgba(88,166,255,.15);color:var(--accent);border-radius:8px;padding:4px 10px;font-weight:800;font-size:14px;min-width:48px;text-align:center">${pts[rang]} pts</div>` : '<div style="min-width:58px"></div>'}
+        </div>`;
+      }).join('')}
+      <button class="btn btn-primary" style="margin-top:8px" onclick="saveRelais()">💾 Enregistrer</button>
       <button class="btn btn-ghost" onclick="joView='home';renderJO()">← Retour</button>`;
-
-    // Init drag & drop
-    initRelaisDnD();
   }
 
-  function initRelaisDnD() {
-    const list = document.getElementById('relais-list');
-    if (!list) return;
-    let dragging = null;
-
-    list.querySelectorAll('[data-id]').forEach(item => {
-      item.addEventListener('dragstart', e => {
-        dragging = item;
-        setTimeout(() => item.style.opacity = '0.4', 0);
-      });
-      item.addEventListener('dragend', () => {
-        item.style.opacity = '1';
-        item.style.transform = '';
-        dragging = null;
-        // Update classement from DOM order
-        classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
-        render();
-      });
-      item.addEventListener('dragover', e => {
-        e.preventDefault();
-        if (!dragging || dragging === item) return;
-        const rect = item.getBoundingClientRect();
-        const mid  = rect.top + rect.height / 2;
-        if (e.clientY < mid) list.insertBefore(dragging, item);
-        else list.insertBefore(dragging, item.nextSibling);
-      });
-
-      // Touch support
-      let touchStartY = 0, touchItem = null;
-      item.addEventListener('touchstart', e => {
-        touchStartY = e.touches[0].clientY;
-        touchItem = item;
-        item.style.opacity = '0.6';
-      }, {passive:true});
-      item.addEventListener('touchmove', e => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const els = [...list.querySelectorAll('[data-id]')];
-        const target = els.find(el => {
-          if (el === touchItem) return false;
-          const r = el.getBoundingClientRect();
-          return touch.clientY >= r.top && touch.clientY <= r.bottom;
-        });
-        if (target) {
-          const rect = target.getBoundingClientRect();
-          const mid  = rect.top + rect.height / 2;
-          if (touch.clientY < mid) list.insertBefore(touchItem, target);
-          else list.insertBefore(touchItem, target.nextSibling);
-        }
-      }, {passive:false});
-      item.addEventListener('touchend', () => {
-        item.style.opacity = '1';
-        classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
-        render();
-      });
-    });
-  }
+  window.setRang = function(cid, rang) {
+    rangs[cid] = rang;
+    render();
+  };
 
   window.saveRelais = function() {
-    const list = document.getElementById('relais-list');
-    if (list) classement = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
-    joData.relais.classement = classement;
+    joData.relais.rangs = rangs;
+    // Build classement for backward compat
+    joData.relais.classement = JO_CLASSES
+      .filter(c => rangs[c.id])
+      .sort((a,b) => rangs[a.id] - rangs[b.id])
+      .map(c => c.id);
     saveJO(); toast('✅ Relais enregistré !');
     joView='home'; renderJO();
   };
@@ -2947,8 +2920,30 @@ function renderJOQuizMenu(content) {
     </div>
 
     <div class="slabel">Classement final du quiz</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Après le quiz, saisis le classement des classes</div>
-    ${renderClassementPicker('quiz')}
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Attribue un rang à chaque classe · Ex-aequo possibles</div>
+    <div id="quiz-rang-picker">
+      ${JO_CLASSES.map(c => {
+        const rang = (joData.quiz.rangs||{})[c.id] || null;
+        const pts2 = {1:6,2:5,3:4,4:3,5:2,6:1};
+        return `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1px solid var(--border);
+          border-radius:12px;padding:10px 12px;margin-bottom:8px">
+          <div style="width:32px;height:32px;border-radius:8px;background:${c.couleur};
+            display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${c.emoji}</div>
+          <div style="flex:1"><div style="font-weight:700;font-size:14px">${c.cite}</div></div>
+          <div style="display:flex;gap:4px">
+            ${[1,2,3,4,5,6].map(r=>`
+              <button onclick="setQuizRang(${c.id},${r})" style="
+                width:30px;height:30px;border-radius:7px;font-weight:800;font-size:13px;cursor:pointer;
+                border:2px solid ${rang===r?'var(--accent)':'var(--border)'};
+                background:${rang===r?'rgba(88,166,255,.25)':'var(--s2)'};
+                color:${rang===r?'var(--accent)':'var(--muted)'}">${r}</button>
+            `).join('')}
+          </div>
+          ${rang?`<div style="color:var(--accent);font-weight:800;font-size:13px;min-width:36px;text-align:right">${pts2[rang]}pts</div>`:'<div style="min-width:36px"></div>'}
+        </div>`;
+      }).join('')}
+    </div>
     <button class="btn btn-primary" onclick="saveQuizClassement()">💾 Enregistrer le classement quiz</button>
     <button class="btn btn-ghost" onclick="joView='home';renderJO()">← Retour</button>`;
   setTimeout(()=>initPickerDnD('quiz'),50);
@@ -3010,10 +3005,18 @@ function initPickerDnD(type) {
     });
   });
 }
+window.setQuizRang = function(cid, rang) {
+  if (!joData.quiz.rangs) joData.quiz.rangs = {};
+  joData.quiz.rangs[cid] = rang;
+  // Re-render picker
+  renderJOQuizMenu(document.getElementById('joContent'));
+  setTimeout(()=>initPickerDnD('quiz'),50);
+};
 window.saveQuizClassement = function() {
-  const list = document.getElementById('picker_quiz');
-  if (list) quizClassement=[...list.querySelectorAll('[data-id]')].map(el=>parseInt(el.dataset.id));
-  joData.quiz.classement=quizClassement;
+  joData.quiz.classement = JO_CLASSES
+    .filter(c => joData.quiz.rangs && joData.quiz.rangs[c.id])
+    .sort((a,b) => joData.quiz.rangs[a.id] - joData.quiz.rangs[b.id])
+    .map(c => c.id);
   saveJO(); toast('✅ Classement quiz enregistré !');
   joView='home'; renderJO();
 };
@@ -3063,13 +3066,13 @@ function renderJOQuestion(content) {
 }
 
 function renderJOClassement(content) {
-  const pts=[6,5,4,3,2,1];
-  // Calculate totals
+  const pts={1:6, 2:5, 3:4, 4:3, 5:2, 6:1};
   const totaux = JO_CLASSES.map(c=>{
-    const rIdx=joData.relais.classement.indexOf(c.id);
-    const qIdx=joData.quiz.classement.indexOf(c.id);
-    const rPts=rIdx>=0?pts[rIdx]:0;
-    const qPts=qIdx>=0?pts[qIdx]:0;
+    const rangs = joData.relais.rangs || {};
+    const rIdx  = joData.relais.classement.indexOf(c.id);
+    const rPts  = rangs[c.id] ? pts[rangs[c.id]] : (rIdx>=0 ? [6,5,4,3,2,1][rIdx] : 0);
+    const qIdx  = joData.quiz.classement.indexOf(c.id);
+    const qPts  = joData.quiz.rangs ? (joData.quiz.rangs[c.id] ? pts[joData.quiz.rangs[c.id]] : 0) : (qIdx>=0 ? [6,5,4,3,2,1][qIdx] : 0);
     return { ...c, relais:rPts, quiz:qPts, total:rPts+qPts };
   }).sort((a,b)=>b.total-a.total);
 
