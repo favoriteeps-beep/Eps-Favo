@@ -235,16 +235,16 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 <!-- ══ S-HOME ══ -->
 <div class="screen active" id="s-home">
   <div class="home-tabs">
-    <div class="home-tab active" id="tab-groupes" onclick="switchTab('groupes')">
-      <div class="home-tab-icon">📋</div>
-      <div class="home-tab-label">Présence</div>
+    <div class="home-tab active" id="tab-classes" onclick="switchTab('classes')">
+      <div class="home-tab-icon">🏫</div>
+      <div class="home-tab-label">Classes</div>
     </div>
     <div class="home-tab" id="tab-apsa" onclick="switchTab('apsa')">
       <div class="home-tab-icon">🏅</div>
       <div class="home-tab-label">APSA</div>
     </div>
   </div>
-  <div id="tab-content-groupes">
+  <div id="tab-content-groupes" style="display:none">
     <div id="groupList"></div>
     <div class="empty" id="homeEmpty" style="display:none">
       <div class="empty-icon">🏃</div>
@@ -266,6 +266,21 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div id="joContent" style="display:none"></div>
     <div id="apsaList"></div>
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="slabel" style="margin-top:0">💾 Sauvegarde des données</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" style="flex:1;padding:12px 8px;font-size:13px" onclick="exportData()">📤 Exporter</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1;padding:12px 8px;font-size:13px" onclick="document.getElementById('importDataInput').click()">📥 Importer</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">Exporte pour sauvegarder · Importe pour restaurer</div>
+    </div>
+  </div>
+
+  <div id="tab-content-classes" style="display:block">
+    <div id="classesList"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" onclick="nav('s-new-group')">+ Créer une classe</button>
+    </div>
+    <div style="margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">
       <div class="slabel" style="margin-top:0">💾 Sauvegarde des données</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" style="flex:1;padding:12px 8px;font-size:13px" onclick="exportData()">📤 Exporter</button>
@@ -313,6 +328,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="empty-text">Aucune séance.<br>Appuie sur <strong>+</strong> pour faire l'appel.</div>
   </div>
   <button class="fab" onclick="newSession()">+</button>
+</div>
+
+<!-- ══ S-CLASSE-DETAIL ══ -->
+<div class="screen" id="s-classe-detail">
+  <div id="classeDetailContent"></div>
 </div>
 
 <!-- ══ S-APPEL ══ -->
@@ -635,6 +655,7 @@ function header(id) {
     's-bilan':       ['Bilan cycle', grp?.name||''],
     's-apsa-detail':    [apsa?.name||'', 'Choisir le groupe'],
     's-apsa-group':     [evalGrp?.name||'', apsa?.name||''],
+    's-classe-detail':  [curGroup!==null?groups[curGroup]?.name||'':'', 'Vue d\'ensemble'],
     's-savoir-nager':   [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Savoir nager', 'Test étape par étape'],
     's-20m':            [snStu ? `${snStu.nom} ${snStu.prenom}` : '20m départ eau', evalGrp?.name||''],
     's-aisance':        [snStu ? `${snStu.nom} ${snStu.prenom}` : 'Aisance aquatique', evalGrp?.name||''],
@@ -672,14 +693,15 @@ function header(id) {
 let currentTab = 'groupes';
 function switchTab(tab) {
   currentTab = tab;
-  document.getElementById('tab-content-groupes').style.display = tab==='groupes' ? '' : 'none';
+  document.getElementById('tab-content-groupes').style.display = 'none';
   document.getElementById('tab-content-apsa').style.display    = tab==='apsa'    ? '' : 'none';
-  document.getElementById('tab-groupes').classList.toggle('active', tab==='groupes');
+  document.getElementById('tab-content-classes').style.display = tab==='classes' ? '' : 'none';
   document.getElementById('tab-apsa').classList.toggle('active',    tab==='apsa');
+  document.getElementById('tab-classes').classList.toggle('active', tab==='classes');
   if (tab==='apsa') renderApsaHome();
-  else renderHome();
+  else renderClassesTab();
   const fab = document.querySelector('.fab');
-  if (fab) fab.style.display = tab==='groupes' ? '' : 'none';
+  if (fab) fab.style.display = 'none';
 }
 
 function renderHome() {
@@ -3109,6 +3131,151 @@ function renderJOClassement(content) {
 }
 
 // ══════════════════════
+//  ONGLET CLASSES
+// ══════════════════════
+function renderClassesTab() {
+  const list = document.getElementById('classesList');
+  list.innerHTML = '';
+
+  if (!groups.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🏫</div><div class="empty-text">Aucune classe créée.<br>Ajoute des groupes dans l\'onglet Présence.</div></div>';
+    return;
+  }
+
+  const lbl = document.createElement('div'); lbl.className = 'slabel';
+  lbl.textContent = `${groups.length} classe${groups.length>1?'s':''}`;
+  list.appendChild(lbl);
+
+  groups.forEach((g, i) => {
+    const sessions = g.sessions?.length || 0;
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `
+      <div class="card-row">
+        <div style="flex:1;min-width:0">
+          <div class="card-row" style="gap:8px;margin-bottom:4px">
+            <div class="card-title">${g.name}</div>
+            ${g.level ? `<span class="pill pill-blue">${g.level}</span>` : ''}
+          </div>
+          <div class="card-meta">${g.students?.length||0} élèves · ${sessions} séance${sessions>1?'s':''}</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>`;
+    card.onclick = () => { curGroup = i; renderClasseDetail(i); nav('s-classe-detail'); };
+    list.appendChild(card);
+  });
+}
+
+function renderClasseDetail(groupIdx) {
+  const g = groups[groupIdx];
+  const content = document.getElementById('classeDetailContent');
+  content.innerHTML = '';
+
+  // ── Actions rapides ──
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:10px;margin-bottom:20px';
+  actions.innerHTML = `
+    <button class="btn btn-primary" style="flex:1;margin-bottom:0" onclick="newSessionFromClasse(${groupIdx})">
+      📋 Faire l'appel
+    </button>
+    <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="curGroup=${groupIdx};renderGroup();nav('s-group')">
+      📅 Historique
+    </button>`;
+  content.appendChild(actions);
+
+  // ── Dernière séance ──
+  const sessions = g.sessions || [];
+  if (sessions.length) {
+    const lastSess = sessions[sessions.length-1];
+    const att = lastSess.attendance || [];
+    const P = att.filter(a=>a.status==='present').length;
+    const A = att.filter(a=>a.status==='absent').length;
+    const D = att.filter(a=>a.status==='dispensed').length;
+    const lastDiv = document.createElement('div');
+    lastDiv.innerHTML = `
+      <div class="slabel">📋 Dernière séance · ${formatDate(lastSess.date)}</div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span class="pill pill-green">✅ ${P} présents</span>
+          <span class="pill pill-red">❌ ${A} absents</span>
+          ${D?`<span class="pill pill-yellow">🩹 ${D} dispensés</span>`:''}
+        </div>
+      </div>`;
+    content.appendChild(lastDiv);
+  }
+
+  // ── APSA compatibles ──
+  const apsasCompatibles = APSAS.filter(apsa =>
+    !apsa.niveaux || apsa.niveaux.some(n => g.level && g.level.toLowerCase().includes(n.toLowerCase()))
+  );
+
+  if (apsasCompatibles.length) {
+    const apsaLbl = document.createElement('div');
+    apsaLbl.className = 'slabel';
+    apsaLbl.textContent = '🏅 APSA · Résultats';
+    content.appendChild(apsaLbl);
+
+    apsasCompatibles.forEach(apsa => {
+      const apsaCard = document.createElement('div');
+      apsaCard.style.cssText = 'background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px';
+
+      let evalsHtml = '';
+      apsa.evals.forEach(ev => {
+        const done  = g.students.filter(stu => evals[`${groupIdx}_${apsa.id}_${ev.id}_${stu.id}`]).length;
+        const total = g.students.length;
+        const pct   = total ? Math.round(done/total*100) : 0;
+        const color = pct===100?'var(--green)':pct>0?'var(--yellow)':'var(--muted)';
+
+        evalsHtml += `
+          <div onclick="curApsa='${apsa.id}';curEvalType='${ev.id}';curEvalGroup=${groupIdx};renderEvalStudentList();nav('s-apsa-group')"
+            style="display:flex;align-items:center;justify-content:space-between;
+            margin-bottom:6px;padding:10px 12px;background:var(--s2);border-radius:8px;cursor:pointer">
+            <div style="font-size:13px">${ev.icon} ${ev.name}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="font-size:12px;color:${color};font-weight:700">${done}/${total}</div>
+              <div style="width:50px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+                <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+              </div>
+              <span style="color:var(--muted);font-size:14px">›</span>
+            </div>
+          </div>`;
+      });
+
+      apsaCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="font-size:22px">${apsa.icon}</div>
+          <div style="font-weight:700;font-size:15px">${apsa.name}</div>
+        </div>
+        ${evalsHtml}`;
+      content.appendChild(apsaCard);
+    });
+  } else {
+    const noApsa = document.createElement('div');
+    noApsa.style.cssText = 'color:var(--muted);font-size:13px;text-align:center;padding:16px';
+    noApsa.textContent = 'Aucune APSA disponible pour ce niveau.';
+    content.appendChild(noApsa);
+  }
+}
+
+function newSessionFromClasse(groupIdx) {
+  curGroup = groupIdx;
+  curSess  = null;
+  pendingAtt = {};
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('appelDate').value = today;
+  // auto-fill active dispenses
+  const g = groups[curGroup];
+  const sessions = g.sessions || [];
+  if (sessions.length) {
+    (sessions[sessions.length-1].attendance||[]).forEach(a => {
+      if (a.status==='dispensed' && a.dispenseUntil && a.dispenseUntil >= today)
+        pendingAtt[a.id] = { status:'dispensed', invest:null, dispenseUntil:a.dispenseUntil, tenue:false, note:'' };
+    });
+  }
+  renderAppel();
+  nav('s-appel');
+}
+
+// ══════════════════════
 //  EXPORT / IMPORT DATA
 // ══════════════════════
 function exportData() {
@@ -3153,7 +3320,7 @@ function importData(event) {
 // ══════════════════════
 //  INIT
 // ══════════════════════
-renderHome();
+renderClassesTab();
 </script>
 </body>
 </html>
