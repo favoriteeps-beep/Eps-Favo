@@ -991,7 +991,10 @@ function exportApsaComplet(apsa) {
         } else if (ev.id==='aisance') {
           result = `${res.type==='coulee'?'Coulée':'Cerceaux'} Niv.${res.niveau}`; note = res.note||'';
         } else if (ev.id==='escalade-cycle') {
-          result = `SF: ${res.sfNote}/20`; note = res.sfNote||''; detail = `Trav: ${res.traverseeNote||''}`;
+          const sfDetails = SAVOIRS_FAIRE.map(sf => `${sf.name}: ${res.sf?.[sf.id] ? '✅' : '❌'}`).join(' | ');
+          result = `SF: ${res.sfNote||0}/20`;
+          note = res.sfNote||'';
+          detail = `${sfDetails} | Traversée mur ${res.traversee??'-'} (${res.traverseeNote??'-'}/20)${res.kohlantah?' | 🏝️ KL validé':''}${res.cliffhanger?' | 🎬 CF validé':''}`;
         } else if (ev.id==='escalade-finale') {
           result = `Score: ${res.score}`; note = res.note||'';
         } else if (ev.id==='escalade-bloc') {
@@ -1642,6 +1645,34 @@ function exportEvalExcel() {
   const g    = groups[curEvalGroup];
   const apsa = APSAS.find(a=>a.id===curApsa);
   const ev   = apsa?.evals.find(e=>e.id===curEvalType);
+
+  // Special export for escalade-cycle with detail columns
+  if (curEvalType==='escalade-cycle') {
+    const rows = [['Nom','Prénom','Classe',
+      'Assurage /5','Descente équil. /4','Assurage descente /4','Pliage corde /3','Centre gravité /4',
+      'SF Total /20','Traversée (mur)','Traversée /20','Koh Lantah','Cliffhanger','Date']];
+    g.students.forEach(stu=>{
+      const key=`${curEvalGroup}_${curApsa}_${curEvalType}_${stu.id}`;
+      const res=evals[key];
+      if (res) {
+        rows.push([stu.nom,stu.prenom,stu.classe||'',
+          res.sf?.assurage?5:0, res.sf?.descente?4:0, res.sf?.assDescente?4:0,
+          res.sf?.pliage?3:0, res.sf?.centre?4:0,
+          res.sfNote||0, res.traversee??'-', res.traverseeNote??'-',
+          res.kohlantah?'✅':'', res.cliffhanger?'✅':'', res.date||'']);
+      } else {
+        rows.push([stu.nom,stu.prenom,stu.classe||'',...Array(11).fill('Non évalué')]);
+      }
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:20},{wch:16},{wch:12},{wch:12},{wch:14},{wch:16},{wch:12},{wch:14},{wch:12},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Suivi de cycle'.slice(0,31));
+    XLSX.writeFile(wb,`Eval_Escalade_Cycle_${g.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast('📥 Export téléchargé !');
+    return;
+  }
+
   const rows = [['Nom','Prénom','Classe','Résultat','Note /20','Date','Détail']];
   g.students.forEach(stu=>{
     const key=`${curEvalGroup}_${curApsa}_${curEvalType}_${stu.id}`;
@@ -1657,12 +1688,17 @@ function exportEvalExcel() {
         result=`Niveau ${res.niveau}`; note=res.note||''; detail=res.tps?`${res.tps}s / ${res.cbr} coups`:'';
       } else if (curEvalType==='aisance') {
         result=`Niveau ${res.niveau}`; note=res.note||''; detail=res.type||'';
+      } else if (curEvalType==='escalade-finale') {
+        result=`Score: ${res.score}`; note=res.note||'';
+      } else if (curEvalType==='escalade-bloc') {
+        result=`Moy: ${res.avg}`; note=res.note||'';
+        detail=res.murs?.map((m,i)=>`Mur${i}: ${m}`).join(' | ')||'';
       }
     }
     rows.push([stu.nom,stu.prenom,stu.classe||'',result,note,date,detail]);
   });
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:20},{wch:16},{wch:12},{wch:16},{wch:10},{wch:12},{wch:30}];
+  ws['!cols']=[{wch:20},{wch:16},{wch:12},{wch:16},{wch:10},{wch:12},{wch:40}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,`${ev?.name||'eval'}`.slice(0,31));
   XLSX.writeFile(wb,`Eval_${ev?.name}_${g.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -2039,7 +2075,9 @@ const SAVOIRS_FAIRE = [
 ];
 
 function getEscaladeKey(type) {
-  return `${curEvalGroup}_escalade_${type}_${snStudentId}`;
+  // Format standard : `${curEvalGroup}_${curApsa}_${curEvalType}_${studentId}`
+  // curApsa = 'escalade', curEvalType = 'escalade-cycle' / 'escalade-finale' / 'escalade-bloc'
+  return `${curEvalGroup}_escalade_escalade-${type}_${snStudentId}`;
 }
 
 function getScoreNote(score) {
