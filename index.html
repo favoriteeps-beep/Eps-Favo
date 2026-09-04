@@ -913,9 +913,17 @@ function renderEvalStudentList() {
         statusIcon='🌊'; statusText=`Niveau ${res.niveau} · ${res.note}/20`;
         statusColor='var(--accent)';
       } else if (curEvalType==='escalade-cycle') {
-        const sf = res.sfNote !== undefined ? `SF: ${res.sfNote}/20` : '';
-        const tr = res.traverseeNote !== null ? ` · Trav: ${res.traverseeNote}/20` : '';
-        statusIcon='🧗'; statusText=`${sf}${tr}`; statusColor='var(--orange)';
+        const sfNote = res.sfNote !== undefined ? res.sfNote : null;
+        const travNote = res.traverseeNote !== null && res.traverseeNote !== undefined ? res.traverseeNote : null;
+        const parts = [];
+        if (sfNote !== null) parts.push(`SF: ${sfNote}/20`);
+        if (travNote !== null) parts.push(`Trav: ${travNote}/20`);
+        if (res.kohlantah) parts.push('🏝️ KL');
+        if (res.cliffhanger) parts.push('🎬 CF');
+        statusIcon = parts.length ? '🟡' : '⬜';
+        statusText = parts.length ? parts.join(' · ') : 'Non évalué';
+        statusColor = sfNote !== null && travNote !== null ? 'var(--green)' : 'var(--yellow)';
+        if (sfNote !== null && travNote !== null) statusIcon = '✅';
       } else if (curEvalType==='escalade-finale') {
         statusIcon='🏆'; statusText=`Score: ${res.score} → ${res.note}/20`; statusColor='var(--orange)';
       } else if (curEvalType==='escalade-bloc') {
@@ -3220,7 +3228,13 @@ function renderClasseDetail(groupIdx) {
 
       let evalsHtml = '';
       apsa.evals.forEach(ev => {
-        const done  = g.students.filter(stu => evals[`${groupIdx}_${apsa.id}_${ev.id}_${stu.id}`]).length;
+        const done  = g.students.filter(stu => {
+          const key = `${groupIdx}_${apsa.id}_${ev.id}_${stu.id}`;
+          const res = evals[key];
+          if (!res) return false;
+          // For escalade-cycle, count as done if at least sfNote exists
+          return true;
+        }).length;
         const total = g.students.length;
         const pct   = total ? Math.round(done/total*100) : 0;
         const color = pct===100?'var(--green)':pct>0?'var(--yellow)':'var(--muted)';
