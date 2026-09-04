@@ -2074,10 +2074,9 @@ const SAVOIRS_FAIRE = [
   {id:'centre',     name:'Centre de gravité',   pts:4,  color:'var(--purple)'},
 ];
 
-function getEscaladeKey(type) {
-  // Format standard : `${curEvalGroup}_${curApsa}_${curEvalType}_${studentId}`
-  // curApsa = 'escalade', curEvalType = 'escalade-cycle' / 'escalade-finale' / 'escalade-bloc'
-  return `${curEvalGroup}_escalade_escalade-${type}_${snStudentId}`;
+function getEscaladeKey(type, studentId) {
+  const sid = studentId || snStudentId;
+  return `${curEvalGroup}_escalade_escalade-${type}_${sid}`;
 }
 
 function getScoreNote(score) {
@@ -2099,7 +2098,7 @@ function getBlocNote(avg) {
 
 // ── SUIVI DE CYCLE ──
 function renderEscaladeCycle(studentId) {
-  const key   = getEscaladeKey('cycle');
+  const key   = getEscaladeKey('cycle', studentId);
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('escaladeCycleContent');
@@ -2215,7 +2214,7 @@ function renderEscaladeCycle(studentId) {
 
 // ── ÉVAL FINALE ──
 function renderEscaladeFinale(studentId) {
-  const key   = getEscaladeKey('finale');
+  const key   = getEscaladeKey('finale', studentId);
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('escaladeFinaleContent');
@@ -2277,7 +2276,7 @@ function renderEscaladeFinale(studentId) {
 
 // ── BLOC ──
 function renderEscaladeBloc(studentId) {
-  const key   = getEscaladeKey('bloc');
+  const key   = getEscaladeKey('bloc', studentId);
   const saved = evals[key] || {};
   const stu   = groups[curEvalGroup].students.find(s => s.id === studentId);
   const content = document.getElementById('escaladeBlocContent');
