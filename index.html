@@ -2033,7 +2033,13 @@ function confirmDeleteSession(idx) {
 function confirmDelete(idx) {
   document.getElementById('modalTitle').textContent='Supprimer ce groupe ?';
   document.getElementById('modalSub').textContent=`"${groups[idx].name}" et toutes ses séances seront supprimés.`;
-  document.getElementById('modalConfirm').onclick=()=>{ groups.splice(idx,1); save(); toast('🗑️ Supprimé'); closeModal(); renderHome(); };
+  document.getElementById('modalConfirm').onclick = () => {
+    groups.splice(idx, 1);
+    save();
+    toast('🗑️ Classe supprimée');
+    closeModal();
+    renderClassesTab();
+  };
   document.getElementById('overlay').classList.add('show');
 }
 function closeModal() { document.getElementById('overlay').classList.remove('show'); }
@@ -3203,6 +3209,10 @@ function renderClassesTab() {
           </div>
           <div class="card-meta">${g.students?.length||0} élèves · ${sessions} séance${sessions>1?'s':''}</div>
         </div>
+        <button onclick="event.stopPropagation();confirmDelete(${i})" style="
+          background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--red);
+          border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;margin-right:8px;
+          flex-shrink:0">🗑️</button>
         <div class="card-chevron">›</div>
       </div>`;
     card.onclick = () => { curGroup = i; renderClasseDetail(i); nav('s-classe-detail'); };
