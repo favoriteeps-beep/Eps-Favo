@@ -243,6 +243,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="home-tab-icon">🏅</div>
       <div class="home-tab-label">APSA</div>
     </div>
+    <div class="home-tab" id="tab-disp" onclick="switchTab('disp')">
+      <div class="home-tab-icon">🩹</div>
+      <div class="home-tab-label">Dispenses</div>
+    </div>
   </div>
   <div id="tab-content-groupes" style="display:none">
     <div id="groupList"></div>
@@ -261,6 +265,20 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <input type="file" id="importDataInput" accept=".json" style="display:none" onchange="importData(event)">
     </div>
     <button class="fab" onclick="nav('s-new-group')">+</button>
+  </div>
+  <div id="tab-content-disp" style="display:none">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm" id="dispSegD" style="flex:1" onclick="setDispSeg('d')">🩹 Dispensés</button>
+      <button class="btn btn-ghost btn-sm" id="dispSegS" style="flex:1" onclick="setDispSeg('s')">🚪 Sorties</button>
+    </div>
+    <input type="text" id="dispSearch" placeholder="🔍 Rechercher un nom…" oninput="renderDisp()" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--s1);color:var(--text);font-size:15px;margin-bottom:8px;box-sizing:border-box">
+    <div id="dispClasses" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div id="dispList"></div>
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border)">
+      <button class="btn btn-ghost btn-sm" style="width:100%;padding:12px" onclick="document.getElementById('dispFileInput').click()">📥 Mettre à jour depuis Excel</button>
+      <input type="file" id="dispFileInput" accept=".xlsx,.xls" style="display:none" onchange="importDispExcel(event)">
+      <div id="dispInfo" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px"></div>
+    </div>
   </div>
   <div id="tab-content-apsa" style="display:none">
     <div id="joContent" style="display:none"></div>
@@ -696,9 +714,12 @@ function switchTab(tab) {
   document.getElementById('tab-content-groupes').style.display = 'none';
   document.getElementById('tab-content-apsa').style.display    = tab==='apsa'    ? '' : 'none';
   document.getElementById('tab-content-classes').style.display = tab==='classes' ? '' : 'none';
+  document.getElementById('tab-content-disp').style.display    = tab==='disp'    ? '' : 'none';
   document.getElementById('tab-apsa').classList.toggle('active',    tab==='apsa');
   document.getElementById('tab-classes').classList.toggle('active', tab==='classes');
+  document.getElementById('tab-disp').classList.toggle('active',    tab==='disp');
   if (tab==='apsa') renderApsaHome();
+  else if (tab==='disp') renderDisp();
   else renderClassesTab();
   const fab = document.querySelector('.fab');
   if (fab) fab.style.display = 'none';
@@ -3343,7 +3364,7 @@ function exportData() {
   const data = {
     version: 1,
     date: new Date().toISOString(),
-    groups, evals, cirqueGroups, danseGroups, joData,
+    groups, evals, cirqueGroups, danseGroups, joData, dispData,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -3369,6 +3390,7 @@ function importData(event) {
       cirqueGroups = data.cirqueGroups || {};
       danseGroups  = data.danseGroups  || {};
       joData       = data.joData       || { relais:{classement:[]}, quiz:{classement:[]}, quizQ:{} };
+      if (data.dispData) { dispData = data.dispData; DB.set('eps_dispenses', dispData); }
       save(); saveEvals(); saveCirqueData(); saveDanseData(); saveJO();
       renderHome();
       toast('✅ Données restaurées !');
@@ -3376,6 +3398,108 @@ function importData(event) {
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+
+// ══════════════════════
+//  DISPENSES & SORTIES (lecture seule, import Excel)
+// ══════════════════════
+let dispData = DB.get('eps_dispenses') || { dispenses:[], sorties:[], date:null };
+let dispSeg = 'd', dispClasse = '';
+const MOIS_FR = {janvier:1,jan:1,fevrier:2,fev:2,mars:3,avril:4,avr:4,mai:5,juin:6,juillet:7,juil:7,aout:8,septembre:9,sept:9,sep:9,octobre:10,oct:10,novembre:11,nov:11,decembre:12,dec:12};
+function normTxt(t){ return String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function cleanTxt(t){ return String(t==null?'':t).replace(/\s+/g,' ').trim(); }
+function parseDateFR(v){
+  if (v instanceof Date && !isNaN(v)) return new Date(v.getFullYear(),v.getMonth(),v.getDate());
+  if (v==null || v==='') return null;
+  const t = normTxt(v);
+  let m = t.match(/(\d{1,2})\s*(?:er|e|eme)?\s*([a-z]+)\.?(?:\s+(\d{4}))?/);
+  if (m && MOIS_FR[m[2]]) {
+    const d=+m[1], mo=MOIS_FR[m[2]]; let y=m[3]?+m[3]:null;
+    if (!y) { const now=new Date(); const ys=now.getMonth()>=7?now.getFullYear():now.getFullYear()-1; y = mo>=8 ? ys : ys+1; }
+    return new Date(y,mo-1,d);
+  }
+  m = t.match(/(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?/);
+  if (m) {
+    let y=m[3]?+m[3]:null; if (y&&y<100) y+=2000;
+    if (!y) { const now=new Date(); const ys=now.getMonth()>=7?now.getFullYear():now.getFullYear()-1; y = +m[2]>=8 ? ys : ys+1; }
+    return new Date(y,+m[2]-1,+m[1]);
+  }
+  return null;
+}
+function setDispSeg(x){
+  dispSeg=x; dispClasse='';
+  document.getElementById('dispSegD').className = 'btn btn-sm' + (x==='d'?'':' btn-ghost');
+  document.getElementById('dispSegS').className = 'btn btn-sm' + (x==='s'?'':' btn-ghost');
+  renderDisp();
+}
+function setDispClasse(c){ dispClasse = dispClasse===c ? '' : c; renderDisp(); }
+function renderDisp(){
+  const list = dispSeg==='d' ? dispData.dispenses : dispData.sorties;
+  const q = normTxt(document.getElementById('dispSearch').value);
+  const classes = [...new Set(list.map(x=>x.classe).filter(Boolean))].sort();
+  document.getElementById('dispClasses').innerHTML = classes.map(c=>
+    `<button class="btn btn-sm ${dispClasse===c?'':'btn-ghost'}" style="padding:6px 12px;font-size:12px" onclick="setDispClasse('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+  let rows = list.filter(x=>(!dispClasse||x.classe===dispClasse) && (!q || normTxt(x.nom+' '+x.prenom).includes(q)));
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (dispSeg==='d') {
+    rows = rows.map(x=>({...x, dt: x.ts!=null?new Date(x.ts):null}));
+    rows.sort((a,b)=>(a.dt?a.dt.getTime():9e15)-(b.dt?b.dt.getTime():9e15) || a.nom.localeCompare(b.nom));
+  } else rows.sort((a,b)=>a.classe.localeCompare(b.classe)||a.nom.localeCompare(b.nom));
+  const el = document.getElementById('dispList');
+  if (!list.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">Aucune donnée.<br>Appuie sur <strong>Mettre à jour depuis Excel</strong> ci-dessous.</div></div>'; }
+  else if (!rows.length) { el.innerHTML = '<div class="empty"><div class="empty-text">Aucun résultat</div></div>'; }
+  else if (dispSeg==='d') {
+    el.innerHTML = rows.map(x=>{
+      let col='var(--purple)', lab=x.retour||'—';
+      if (x.dt) {
+        const diff = Math.round((x.dt-today)/864e5);
+        const ds = x.dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+        if (diff<=0) { col='var(--green)'; lab=`Terminée · reprise le ${ds}`; }
+        else if (diff<=7) { col='var(--yellow)'; lab=`Reprise le ${ds} · dans ${diff} j`; }
+        else { col='var(--red)'; lab=`Reprise le ${ds} · dans ${diff} j`; }
+      }
+      return `<div class="card" style="cursor:default;border-left:4px solid ${col}"><div style="font-weight:700;font-size:16px">${x.nom} ${x.prenom}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${x.classe}</div><div style="font-size:14px;font-weight:600;color:${col};margin-top:6px">${lab}</div></div>`;
+    }).join('');
+  } else {
+    el.innerHTML = rows.map(x=>`<div class="card" style="cursor:default;border-left:4px solid var(--green);display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-weight:700;font-size:16px">${x.nom} ${x.prenom}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${x.classe}</div></div><div style="font-size:13px;font-weight:700;color:var(--green);white-space:nowrap">✅ Autorisé</div></div>`).join('');
+    if (q && rows.length===0) {}
+  }
+  // Recherche en onglet sorties : afficher aussi un verdict clair
+  if (dispSeg==='s' && q && list.length && !rows.length) el.innerHTML = '<div class="card" style="cursor:default;border-left:4px solid var(--red);text-align:center;font-size:18px;font-weight:700;color:var(--red)">⛔ Non autorisé</div>';
+  document.getElementById('dispInfo').textContent = dispData.date ? `${dispData.dispenses.length} dispensé(s) · ${dispData.sorties.length} autorisation(s) · mis à jour le ${new Date(dispData.date).toLocaleDateString('fr-FR')}` : '';
+}
+function importDispExcel(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const find = (re)=>wb.SheetNames.find(n=>re.test(normTxt(n)));
+      const shD = find(/dispens/), shS = find(/sortie|autoris/);
+      const readSheet = (name)=>{
+        if(!name) return [];
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
+        if(!rows.length) return [];
+        const h = rows[0].map(normTxt);
+        const ix = re => h.findIndex(x=>re.test(x));
+        const iN=ix(/^nom/), iP=ix(/prenom/), iC=ix(/classe/), iD=ix(/date|retour|reprise/);
+        return rows.slice(1).filter(r=>cleanTxt(r[iN])||cleanTxt(r[iP])).map(r=>{
+          const raw = iD>=0 ? r[iD] : '';
+          const dt = parseDateFR(raw);
+          return { nom:cleanTxt(r[iN]), prenom:cleanTxt(r[iP]), classe:iC>=0?cleanTxt(r[iC]):'',
+                   retour: raw instanceof Date ? raw.toLocaleDateString('fr-FR') : cleanTxt(raw), ts: dt?dt.getTime():null };
+        });
+      };
+      if(!shD && !shS){ toast('❌ Onglets "Dispense" / "Autorisation sortie" introuvables'); return; }
+      dispData = { dispenses:readSheet(shD), sorties:readSheet(shS), date:new Date().toISOString() };
+      DB.set('eps_dispenses', dispData);
+      renderDisp();
+      toast(`✅ ${dispData.dispenses.length} dispensé(s), ${dispData.sorties.length} autorisation(s)`);
+    } catch(err){ console.error(err); toast('❌ Fichier illisible'); }
+  };
+  r.readAsArrayBuffer(f);
+  ev.target.value='';
 }
 
 // ══════════════════════
