@@ -3444,8 +3444,8 @@ function renderDisp(){
   const today = new Date(); today.setHours(0,0,0,0);
   if (dispSeg==='d') {
     rows = rows.map(x=>({...x, dt: x.ts!=null?new Date(x.ts):null}));
-    rows.sort((a,b)=>(a.dt?a.dt.getTime():9e15)-(b.dt?b.dt.getTime():9e15) || a.nom.localeCompare(b.nom));
-  } else rows.sort((a,b)=>a.classe.localeCompare(b.classe)||a.nom.localeCompare(b.nom));
+  }
+  rows.sort((a,b)=>a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'})||a.prenom.localeCompare(b.prenom,'fr',{sensitivity:'base'}));
   const el = document.getElementById('dispList');
   if (!list.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">Aucune donnée.<br>Appuie sur <strong>Mettre à jour depuis Excel</strong> ci-dessous.</div></div>'; }
   else if (!rows.length) { el.innerHTML = '<div class="empty"><div class="empty-text">Aucun résultat</div></div>'; }
